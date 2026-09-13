@@ -15,7 +15,12 @@ fn matrix_loss_axis_is_reproducible_and_approximate() {
         let results = p.run(50_000, 0);
         let dropped = results
             .iter()
-            .filter(|r| matches!(r, PacketResult::Dropped { .. } | PacketResult::ConnectionDown { .. }))
+            .filter(|r| {
+                matches!(
+                    r,
+                    PacketResult::Dropped { .. } | PacketResult::ConnectionDown { .. }
+                )
+            })
             .count();
         let measured = dropped as f64 / results.len() as f64;
         let tolerance = 0.02;
@@ -97,7 +102,10 @@ fn matrix_reset_axis_triggers_connection_downs() {
 #[test]
 fn matrix_intermittent_mode_blocks_packets_in_down_window() {
     let mut p = PipelineState::from_profile(
-        ChaosProfile::with_failure(FailureMode::Intermittent { down_ratio: 0.5, mean_down_ms: 200 }),
+        ChaosProfile::with_failure(FailureMode::Intermittent {
+            down_ratio: 0.5,
+            mean_down_ms: 200,
+        }),
         5,
     );
     let results = p.run(5_000, 0);
@@ -105,7 +113,10 @@ fn matrix_intermittent_mode_blocks_packets_in_down_window() {
         .iter()
         .filter(|r| matches!(r, PacketResult::ConnectionDown { .. }))
         .count();
-    assert!(downs > 100, "intermittent 0.5 down-ratio must drop many packets, got {downs}");
+    assert!(
+        downs > 100,
+        "intermittent 0.5 down-ratio must drop many packets, got {downs}"
+    );
 }
 
 /// Connecting the 38-matrix input shape directly (helper used by engine

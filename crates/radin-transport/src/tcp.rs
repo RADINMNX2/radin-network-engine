@@ -35,7 +35,10 @@ impl TcpTunnel {
         let stream = TcpStream::connect_timeout(addr, timeout)?;
         stream.set_nodelay(true)?;
         stream.set_read_timeout(Some(timeout))?;
-        Ok(Self { stream, rx_buf: Vec::with_capacity(65_535) })
+        Ok(Self {
+            stream,
+            rx_buf: Vec::with_capacity(65_535),
+        })
     }
 
     fn write_frame(&mut self, payload: &[u8]) -> Result<(), TransportError> {
@@ -103,7 +106,11 @@ impl Transport for TcpTunnel {
 
     fn recv(&mut self) -> Result<Option<RecvResult>, TransportError> {
         self.recv_frame().map(|opt| {
-            opt.map(|bytes| RecvResult { bytes, sequence: None, received_at_ms: now_ms() })
+            opt.map(|bytes| RecvResult {
+                bytes,
+                sequence: None,
+                received_at_ms: now_ms(),
+            })
         })
     }
 
@@ -114,7 +121,10 @@ impl Transport for TcpTunnel {
 
 fn now_ms() -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -144,7 +154,12 @@ mod tests {
         });
 
         let mut client = TcpTunnel::connect(&addr.to_string(), Duration::from_secs(2)).unwrap();
-        client.send(PendingSend { bytes: b"hello".to_vec(), latency_sensitive: false }).unwrap();
+        client
+            .send(PendingSend {
+                bytes: b"hello".to_vec(),
+                latency_sensitive: false,
+            })
+            .unwrap();
         let recv = client.recv().unwrap().expect("echo frame");
         assert_eq!(recv.bytes, b"echo:hello");
         server_handle.join().unwrap();

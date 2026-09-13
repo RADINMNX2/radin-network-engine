@@ -93,11 +93,17 @@ pub unsafe extern "C" fn radin_engine_free(handle: *mut RadinEngine) {
 /// `handle` must be a live engine handle; `buf` must point to at least `cap`
 /// writable bytes. `cap == 0` is tolerated and writes nothing.
 #[no_mangle]
-pub unsafe extern "C" fn radin_engine_last_error(handle: *const RadinEngine, buf: *mut c_char, cap: usize) -> usize {
+pub unsafe extern "C" fn radin_engine_last_error(
+    handle: *const RadinEngine,
+    buf: *mut c_char,
+    cap: usize,
+) -> usize {
     if handle.is_null() || buf.is_null() || cap == 0 {
         return 0;
     }
-    let msg = unsafe { (*handle).last_error.lock() }.map(|s| s.clone()).unwrap_or_default();
+    let msg = unsafe { (*handle).last_error.lock() }
+        .map(|s| s.clone())
+        .unwrap_or_default();
     let bytes = msg.as_bytes();
     let n = bytes.len().min(cap.saturating_sub(1));
     unsafe {
@@ -143,7 +149,11 @@ pub extern "C" fn radin_engine_set_edges(
 }
 
 #[no_mangle]
-pub extern "C" fn radin_engine_set_network(handle: *mut RadinEngine, network: i32, now_ms: u64) -> i32 {
+pub extern "C" fn radin_engine_set_network(
+    handle: *mut RadinEngine,
+    network: i32,
+    now_ms: u64,
+) -> i32 {
     let net = match network {
         0 => NetworkType::Wifi,
         1 => NetworkType::FiveG,
@@ -290,7 +300,9 @@ pub extern "C" fn radin_free_string(ptr: *mut c_char) {
         let mut len_bytes = [0u8; 4];
         std::ptr::copy_nonoverlapping(hdr_ptr, len_bytes.as_mut_ptr(), 4);
         let total = 4 + u32::from_le_bytes(len_bytes) as usize;
-        drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(hdr_ptr, total)));
+        drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(
+            hdr_ptr, total,
+        )));
     }
 }
 
@@ -351,7 +363,11 @@ pub extern "C" fn radin_engine_may_forward_direct(handle: *mut RadinEngine) -> i
         Some(g) => g,
         None => return -1,
     };
-    if g.may_forward_direct() { 1 } else { 0 }
+    if g.may_forward_direct() {
+        1
+    } else {
+        0
+    }
 }
 
 fn transport_int(t: TransportKind) -> i32 {
@@ -382,17 +398,19 @@ mod tests {
     }
 
     fn edge_json() -> String {
-        let edges = vec![
-            radin_core::model::EdgeInfo {
-                id: "Edge-SG-01".into(),
-                region: "sgp".into(),
-                address: "10.0.0.1".into(),
-                supported_transports: vec![TransportKind::Quic, TransportKind::Udp, TransportKind::TcpTls],
-                priority: None,
-                expires_at: 1_000_000_000,
-                signature_b64: None,
-            },
-        ];
+        let edges = vec![radin_core::model::EdgeInfo {
+            id: "Edge-SG-01".into(),
+            region: "sgp".into(),
+            address: "10.0.0.1".into(),
+            supported_transports: vec![
+                TransportKind::Quic,
+                TransportKind::Udp,
+                TransportKind::TcpTls,
+            ],
+            priority: None,
+            expires_at: 1_000_000_000,
+            signature_b64: None,
+        }];
         serde_json::to_string(&edges).unwrap()
     }
 
@@ -419,7 +437,15 @@ mod tests {
 
         let id = b"Edge-SG-01\0";
         assert_eq!(
-            radin_engine_observe(handle, id.as_ptr() as *const c_char, id.len() - 1, 18.0, 2.0, 0, 10),
+            radin_engine_observe(
+                handle,
+                id.as_ptr() as *const c_char,
+                id.len() - 1,
+                18.0,
+                2.0,
+                0,
+                10
+            ),
             ERR_OK
         );
 
@@ -432,7 +458,10 @@ mod tests {
             String::from_utf8_lossy(&bytes[..len]).into_owned()
         };
         radin_free_string(out);
-        assert!(json.contains("selected_edge"), "report JSON includes route info: {json}");
+        assert!(
+            json.contains("selected_edge"),
+            "report JSON includes route info: {json}"
+        );
 
         unsafe { radin_engine_free(handle) };
     }
@@ -440,6 +469,9 @@ mod tests {
     #[test]
     fn refuse_null_handle_gracefully() {
         let mut out: *mut c_char = std::ptr::null_mut();
-        assert_eq!(radin_engine_diagnostic_json(std::ptr::null_mut(), 0, &mut out), ERR_NULL);
+        assert_eq!(
+            radin_engine_diagnostic_json(std::ptr::null_mut(), 0, &mut out),
+            ERR_NULL
+        );
     }
 }

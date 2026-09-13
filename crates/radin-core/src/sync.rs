@@ -65,7 +65,11 @@ impl SyncEngine {
     pub fn enqueue(&mut self, op: ControlOp, now: TimestampMs) -> bool {
         // Dedup on idempotency key: an already-queued op with the same key
         // must not be added twice.
-        if self.items.iter().any(|i| i.op.idempotency_key == op.idempotency_key) {
+        if self
+            .items
+            .iter()
+            .any(|i| i.op.idempotency_key == op.idempotency_key)
+        {
             return false;
         }
         self.items.push(SyncItem {
@@ -97,8 +101,10 @@ impl SyncEngine {
 
     /// Validate that the network/connection is healthy before flushing.
     pub fn connectivity_ok(&self) -> bool {
-        matches!(self.state, SyncState::LocalOnly | SyncState::Pending | SyncState::Retrying)
-            || self.state == SyncState::Synced
+        matches!(
+            self.state,
+            SyncState::LocalOnly | SyncState::Pending | SyncState::Retrying
+        ) || self.state == SyncState::Synced
     }
 
     /// Build a batch from ops in the given states. Ops in `LocalOnly` are
@@ -107,7 +113,12 @@ impl SyncEngine {
         let eligible: Vec<ControlOp> = self
             .items
             .iter()
-            .filter(|i| matches!(i.state, SyncState::LocalOnly | SyncState::Pending | SyncState::Retrying))
+            .filter(|i| {
+                matches!(
+                    i.state,
+                    SyncState::LocalOnly | SyncState::Pending | SyncState::Retrying
+                )
+            })
             .take(max_ops.max(1))
             .map(|i| ControlOp {
                 operation_id: i.op.operation_id.clone(),
@@ -122,8 +133,12 @@ impl SyncEngine {
             return None;
         }
         for item in self.items.iter_mut() {
-            if matches!(item.state, SyncState::LocalOnly | SyncState::Pending | SyncState::Retrying)
-                && eligible.iter().any(|e| e.idempotency_key == item.op.idempotency_key)
+            if matches!(
+                item.state,
+                SyncState::LocalOnly | SyncState::Pending | SyncState::Retrying
+            ) && eligible
+                .iter()
+                .any(|e| e.idempotency_key == item.op.idempotency_key)
             {
                 item.state = SyncState::Syncing;
                 item.attempts += 1;
@@ -131,13 +146,21 @@ impl SyncEngine {
             }
         }
         self.state = SyncState::Syncing;
-        Some(SyncBatch { ops: eligible, created_at: now })
+        Some(SyncBatch {
+            ops: eligible,
+            created_at: now,
+        })
     }
 
     /// Mark a batch (by the ids it carried) as synced.
     pub fn mark_synced(&mut self, batch: &SyncBatch) {
-        let keys: Vec<&str> = batch.ops.iter().map(|o| o.idempotency_key.0.as_str()).collect();
-        self.items.retain(|i| !keys.contains(&i.op.idempotency_key.0.as_str()));
+        let keys: Vec<&str> = batch
+            .ops
+            .iter()
+            .map(|o| o.idempotency_key.0.as_str())
+            .collect();
+        self.items
+            .retain(|i| !keys.contains(&i.op.idempotency_key.0.as_str()));
         self.synced_count += keys.len() as u64;
         if self.items.iter().all(|i| i.state == SyncState::Synced) {
             self.state = SyncState::Synced;
@@ -149,7 +172,11 @@ impl SyncEngine {
     /// A batch failed: mark FAILED; RETRYING happens after network_recovered.
     pub fn mark_failed(&mut self, batch: &SyncBatch, error: String, max_attempts: u32) {
         self.last_error = Some(error);
-        let keys: Vec<&str> = batch.ops.iter().map(|o| o.idempotency_key.0.as_str()).collect();
+        let keys: Vec<&str> = batch
+            .ops
+            .iter()
+            .map(|o| o.idempotency_key.0.as_str())
+            .collect();
         for item in self.items.iter_mut() {
             if keys.contains(&item.op.idempotency_key.0.as_str()) {
                 item.state = if item.attempts >= max_attempts {
@@ -170,7 +197,8 @@ impl SyncEngine {
     /// connection flapped (spec 14: telemetry, aggressive dropping).
     pub fn drop_telemetry(&mut self) {
         let before = self.items.len();
-        self.items.retain(|item| !matches!(item.op.kind, crate::control::ControlOpKind::TelemetryAck));
+        self.items
+            .retain(|item| !matches!(item.op.kind, crate::control::ControlOpKind::TelemetryAck));
         self.dropped_count += (before - self.items.len()) as u64;
     }
 

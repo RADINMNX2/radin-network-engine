@@ -22,8 +22,8 @@
 //!   traffic is never decrypted, modified, or interpreted.
 
 pub mod circuit;
-pub mod control;
 pub mod compression;
+pub mod control;
 pub mod delta;
 pub mod detect;
 pub mod edges;

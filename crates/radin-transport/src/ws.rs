@@ -25,7 +25,9 @@ pub struct WebSocketTunnel {
         tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>,
         Message,
     >,
-    stream: futures_util::stream::SplitStream<tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>>,
+    stream: futures_util::stream::SplitStream<
+        tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>,
+    >,
 }
 
 impl WebSocketTunnel {
@@ -85,7 +87,11 @@ impl Transport for WebSocketTunnel {
 
     fn recv(&mut self) -> Result<Option<RecvResult>, TransportError> {
         block_on(self.recv_frame()).map(|opt| {
-            opt.map(|bytes| RecvResult { bytes, sequence: None, received_at_ms: 0 })
+            opt.map(|bytes| RecvResult {
+                bytes,
+                sequence: None,
+                received_at_ms: 0,
+            })
         })
     }
 

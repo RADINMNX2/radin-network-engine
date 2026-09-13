@@ -36,7 +36,9 @@ impl Http2Transport {
         tokio::spawn(async move {
             let _ = connection.await;
         });
-        Ok(Self { connection: send_request })
+        Ok(Self {
+            connection: send_request,
+        })
     }
 
     /// Send one opaque tunnel frame as an HTTP/2 request body chunk.
@@ -88,7 +90,6 @@ impl Transport for Http2Transport {
 
 #[cfg(test)]
 mod tests {
-    
 
     #[test]
     fn http2_frame_is_an_h2_request() {

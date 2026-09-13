@@ -222,16 +222,32 @@ impl EdgeRegistry {
     }
 
     /// Full per-edge health report with computed scores.
-    pub fn health_report(&self, weights: &EdgeProbeWeights, source: MeasuredSource) -> Vec<EdgeHealth> {
+    pub fn health_report(
+        &self,
+        weights: &EdgeProbeWeights,
+        source: MeasuredSource,
+    ) -> Vec<EdgeHealth> {
         self.stats
             .iter()
             .map(|s| EdgeHealth {
                 edge_id: s.edge_id.clone(),
-                latency_ms: if s.latency_ms == f64::MAX { f64::NAN } else { s.latency_ms },
-                jitter_ms: if s.jitter_ms == f64::MAX { f64::NAN } else { s.jitter_ms },
+                latency_ms: if s.latency_ms == f64::MAX {
+                    f64::NAN
+                } else {
+                    s.latency_ms
+                },
+                jitter_ms: if s.jitter_ms == f64::MAX {
+                    f64::NAN
+                } else {
+                    s.jitter_ms
+                },
                 packet_loss_ratio: s.packet_loss_ratio,
                 availability: s.availability,
-                handshake_latency_ms: if s.handshake_latency_ms == f64::MAX { f64::NAN } else { s.handshake_latency_ms },
+                handshake_latency_ms: if s.handshake_latency_ms == f64::MAX {
+                    f64::NAN
+                } else {
+                    s.handshake_latency_ms
+                },
                 reconnect_rate: s.reconnect_rate(),
                 historical_stability: s.stability(),
                 score: s.health_score(weights),
@@ -263,11 +279,23 @@ impl EdgeRegistry {
                     endpoint: info.address.clone(),
                     transport: *t,
                     region: info.region.clone(),
-                    latency_ms: if s.latency_ms == f64::MAX { 0.0 } else { s.latency_ms },
-                    jitter_ms: if s.jitter_ms == f64::MAX { 0.0 } else { s.jitter_ms },
+                    latency_ms: if s.latency_ms == f64::MAX {
+                        0.0
+                    } else {
+                        s.latency_ms
+                    },
+                    jitter_ms: if s.jitter_ms == f64::MAX {
+                        0.0
+                    } else {
+                        s.jitter_ms
+                    },
                     packet_loss_ratio: s.packet_loss_ratio,
                     stability: s.stability(),
-                    handshake_latency_ms: if s.handshake_latency_ms == f64::MAX { 0.0 } else { s.handshake_latency_ms },
+                    handshake_latency_ms: if s.handshake_latency_ms == f64::MAX {
+                        0.0
+                    } else {
+                        s.handshake_latency_ms
+                    },
                     reconnect_rate: s.reconnect_rate(),
                     score: None,
                     source,
@@ -298,7 +326,13 @@ mod tests {
     fn expired_edges_are_rejected() {
         let mut reg = EdgeRegistry::default();
         let accepted = reg
-            .ingest(vec![edge("a", "sg", "1.2.3.4", 100), edge("b", "eu", "5.6.7.8", 10_000)], 1000)
+            .ingest(
+                vec![
+                    edge("a", "sg", "1.2.3.4", 100),
+                    edge("b", "eu", "5.6.7.8", 10_000),
+                ],
+                1000,
+            )
             .unwrap();
         assert_eq!(accepted, vec!["b"]);
     }
@@ -306,8 +340,14 @@ mod tests {
     #[test]
     fn edge_health_scores_rank_stable_edges_first() {
         let mut reg = EdgeRegistry::default();
-        reg.ingest(vec![edge("sg", "ap-sg", "10.0.0.1", 1_000_000), edge("eu", "eu-west", "10.0.0.2", 1_000_000)], 0)
-            .unwrap();
+        reg.ingest(
+            vec![
+                edge("sg", "ap-sg", "10.0.0.1", 1_000_000),
+                edge("eu", "eu-west", "10.0.0.2", 1_000_000),
+            ],
+            0,
+        )
+        .unwrap();
         // Stable edge: low latency, low jitter, no loss.
         let s = reg.stats_mut("sg").unwrap();
         for _ in 0..30 {
@@ -334,7 +374,8 @@ mod tests {
     #[test]
     fn route_candidates_only_span_supported_transports() {
         let mut reg = EdgeRegistry::default();
-        reg.ingest(vec![edge("sg", "ap-sg", "10.0.0.1", 1_000_000)], 0).unwrap();
+        reg.ingest(vec![edge("sg", "ap-sg", "10.0.0.1", 1_000_000)], 0)
+            .unwrap();
         // Only QUIC is desired here.
         let cands = reg.route_candidates(&[TransportKind::Quic], MeasuredSource::Real);
         assert_eq!(cands.len(), 1);
@@ -344,7 +385,8 @@ mod tests {
     #[test]
     fn synthetic_edges_tag_health_as_synthetic() {
         let mut reg = EdgeRegistry::default();
-        reg.ingest(vec![edge("x", "na", "10.9.9.9", 1_000_000)], 0).unwrap();
+        reg.ingest(vec![edge("x", "na", "10.9.9.9", 1_000_000)], 0)
+            .unwrap();
         reg.stats_mut("x").unwrap().observes(20.0, 1.0, false);
         let report = reg.health_report(&EdgeProbeWeights::default(), MeasuredSource::Synthetic);
         assert_eq!(report[0].source, MeasuredSource::Synthetic);

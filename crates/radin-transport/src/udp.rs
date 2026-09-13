@@ -67,7 +67,11 @@ impl UdpTunnel {
 
     /// Send an opaque packet. Returns bytes actually sent on the wire
     /// (header + payload) so callers can meter overhead.
-    pub fn send_packet(&mut self, payload: &[u8], latency_sensitive: bool) -> Result<usize, TransportError> {
+    pub fn send_packet(
+        &mut self,
+        payload: &[u8],
+        latency_sensitive: bool,
+    ) -> Result<usize, TransportError> {
         if !self.connected {
             return Err(TransportError::Closed);
         }
@@ -101,7 +105,9 @@ impl UdpTunnel {
                 }
                 Ok(Some((seq, payload)))
             }
-            Err(e) if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut => {
+            Err(e)
+                if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut =>
+            {
                 self.timeouts += 1;
                 Ok(None)
             }
@@ -143,7 +149,8 @@ impl Transport for UdpTunnel {
     }
 
     fn send(&mut self, frame: PendingSend) -> Result<(), TransportError> {
-        self.send_packet(&frame.bytes, frame.latency_sensitive).map(|_| ())
+        self.send_packet(&frame.bytes, frame.latency_sensitive)
+            .map(|_| ())
     }
 
     fn recv(&mut self) -> Result<Option<RecvResult>, TransportError> {
@@ -173,7 +180,10 @@ impl Transport for UdpTunnel {
 
 fn now_ms() -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 /// Pure frame encoder (sequence-driven).
@@ -229,10 +239,13 @@ mod tests {
         // Real socket path: client sends a sequence-tracked payload, server
         // echoes it back inside its own envelope.
         let server = UdpSocket::bind("127.0.0.1:0").unwrap();
-        server.set_read_timeout(Some(Duration::from_millis(500))).unwrap();
+        server
+            .set_read_timeout(Some(Duration::from_millis(500)))
+            .unwrap();
         let server_addr = server.local_addr().unwrap();
 
-        let mut client = UdpTunnel::connect(&server_addr.to_string(), Duration::from_millis(200)).unwrap();
+        let mut client =
+            UdpTunnel::connect(&server_addr.to_string(), Duration::from_millis(200)).unwrap();
         client.send_packet(&[7, 8, 9], false).unwrap();
 
         let mut buf = [0u8; 65535];
@@ -243,7 +256,9 @@ mod tests {
         assert_eq!(payload, vec![7, 8, 9]);
 
         // Server responds with seq 100 to prove decap + re-envelope.
-        server.send_to(&encode_frame(100, &[4, 5], false), peer).unwrap();
+        server
+            .send_to(&encode_frame(100, &[4, 5], false), peer)
+            .unwrap();
         let got = client.recv_packet().unwrap().unwrap();
         assert_eq!(got.0, 100);
         assert_eq!(got.1, vec![4, 5]);

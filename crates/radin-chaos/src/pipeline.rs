@@ -86,7 +86,10 @@ impl PipelineState {
                 }
             }
             FailureMode::ResetEveryPackets(_) => {}
-            FailureMode::Intermittent { down_ratio, mean_down_ms } => {
+            FailureMode::Intermittent {
+                down_ratio,
+                mean_down_ms,
+            } => {
                 if let Some(until) = self.down_until_tick {
                     if tick < until {
                         return PacketResult::ConnectionDown { seq: pkt.seq };
@@ -126,19 +129,23 @@ impl PipelineState {
         let base = self.profile.latency_ms.max(0.0);
         let jitter = if self.profile.jitter_ms > 0.0 {
             // Two-sided uniform around 0.
-            self.rng.gen_range(-self.profile.jitter_ms..=self.profile.jitter_ms)
+            self.rng
+                .gen_range(-self.profile.jitter_ms..=self.profile.jitter_ms)
         } else {
             0.0
         };
 
         // Reordering: hold the current packet; emit the previously held one
         // out-of-order (single-slot swap gives reproducible reordering).
-        let do_reorder = self.profile.reorder_ratio > 0.0 && self.rng.gen_bool(self.profile.reorder_ratio);
+        let do_reorder =
+            self.profile.reorder_ratio > 0.0 && self.rng.gen_bool(self.profile.reorder_ratio);
 
         if let Some((held, held_tick)) = self.reorder_pending.take() {
             // Release the held packet first (it belongs BEFORE the current).
             if held_tick <= tick {
-                self.bytes_in_flight = self.bytes_in_flight.saturating_sub(held.payload.len() as u64);
+                self.bytes_in_flight = self
+                    .bytes_in_flight
+                    .saturating_sub(held.payload.len() as u64);
                 return PacketResult::Delivered {
                     seq: held.seq,
                     delay_ms: (tick.saturating_sub(held_tick)),
@@ -157,17 +164,32 @@ impl PipelineState {
             // The current packet is accepted but its delivery is deferred to
             // the next push; report it as delivered-with-delay so a caller
             // batch still observes every packet once.
-            return PacketResult::Delivered { seq: pkt.seq, delay_ms: delay, reordered: false };
+            return PacketResult::Delivered {
+                seq: pkt.seq,
+                delay_ms: delay,
+                reordered: false,
+            };
         }
 
-        PacketResult::Delivered { seq: pkt.seq, delay_ms: delay, reordered: false }
+        PacketResult::Delivered {
+            seq: pkt.seq,
+            delay_ms: delay,
+            reordered: false,
+        }
     }
 
     /// Run `n` packets through the pipeline, collecting fates.
     pub fn run(&mut self, n: u64, tick: u64) -> Vec<PacketResult> {
         let mut out = Vec::with_capacity(n as usize);
         for seq in 0..n {
-            out.push(self.push(PacketRecord { seq, payload: vec![0u8; 64], at_tick: tick }, tick));
+            out.push(self.push(
+                PacketRecord {
+                    seq,
+                    payload: vec![0u8; 64],
+                    at_tick: tick,
+                },
+                tick,
+            ));
         }
         out
     }
@@ -176,7 +198,12 @@ impl PipelineState {
     pub fn measure(results: &[PacketResult]) -> (Vec<PacketResult>, f64, u64, u64) {
         let dropped = results
             .iter()
-            .filter(|r| matches!(r, PacketResult::Dropped { .. } | PacketResult::ConnectionDown { .. }))
+            .filter(|r| {
+                matches!(
+                    r,
+                    PacketResult::Dropped { .. } | PacketResult::ConnectionDown { .. }
+                )
+            })
             .count();
         let total = results.len().max(1);
         let ratio = dropped as f64 / total as f64;
@@ -218,7 +245,10 @@ mod tests {
     fn latency_profile_delivers_with_delay() {
         let mut p = PipelineState::from_profile(ChaosProfile::with_latency(120.0), 7);
         let results = p.run(100, 0);
-        let delivered: Vec<&PacketResult> = results.iter().filter(|r| matches!(r, PacketResult::Delivered{..})).collect();
+        let delivered: Vec<&PacketResult> = results
+            .iter()
+            .filter(|r| matches!(r, PacketResult::Delivered { .. }))
+            .collect();
         let first_delay = match delivered[0] {
             PacketResult::Delivered { delay_ms, .. } => *delay_ms,
             _ => 0,
@@ -258,7 +288,15 @@ mod tests {
         let results = p.run(50, 0);
         let reordered = results
             .iter()
-            .filter(|r| matches!(r, PacketResult::Delivered { reordered: true, .. }))
+            .filter(|r| {
+                matches!(
+                    r,
+                    PacketResult::Delivered {
+                        reordered: true,
+                        ..
+                    }
+                )
+            })
             .count();
         assert!(reordered > 0);
     }
@@ -267,7 +305,11 @@ mod tests {
     fn bandwidth_cap_drops_oversize_bursts() {
         // 8 kbps cap ≈ 1 byte/ms of budget → 64-byte packets exceed it.
         let mut p = PipelineState::from_profile(
-            ChaosProfile { bandwidth_bps: 8_000, latency_ms: 30.0, ..ChaosProfile::default() },
+            ChaosProfile {
+                bandwidth_bps: 8_000,
+                latency_ms: 30.0,
+                ..ChaosProfile::default()
+            },
             11,
         );
         let (_, _, dropped, _) = PipelineState::measure(&p.run(1000, 0));

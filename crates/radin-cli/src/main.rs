@@ -15,7 +15,10 @@ use radin_core::model::{DataPlanePolicy, EdgeInfo, NetworkType, TransportKind, V
 /// Candidate id is "<edge>-<transport>"; strip the transport suffix for the
 /// edge label the way the resolver does.
 fn edge_of(route_id: &str) -> String {
-    route_id.rsplit_once('-').map(|(e, _)| e.to_string()).unwrap_or_else(|| route_id.to_string())
+    route_id
+        .rsplit_once('-')
+        .map(|(e, _)| e.to_string())
+        .unwrap_or_else(|| route_id.to_string())
 }
 
 fn edge_info(id: &str, region: &str, address: &str) -> EdgeInfo {
@@ -23,7 +26,11 @@ fn edge_info(id: &str, region: &str, address: &str) -> EdgeInfo {
         id: id.to_string(),
         region: region.to_string(),
         address: address.to_string(),
-        supported_transports: vec![TransportKind::Quic, TransportKind::Udp, TransportKind::TcpTls],
+        supported_transports: vec![
+            TransportKind::Quic,
+            TransportKind::Udp,
+            TransportKind::TcpTls,
+        ],
         priority: None,
         expires_at: 1_000_000_000,
         signature_b64: None,
@@ -75,7 +82,12 @@ fn main() {
     println!("Phase B — Edge-SG-01 sags (8% loss + rising jitter). Expect a switch.\n");
     edges[0] = SimEdge::new(
         "Edge-SG-01",
-        ChaosProfile { latency_ms: 80.0, jitter_ms: 25.0, loss_ratio: 0.08, ..ChaosProfile::default() },
+        ChaosProfile {
+            latency_ms: 80.0,
+            jitter_ms: 25.0,
+            loss_ratio: 0.08,
+            ..ChaosProfile::default()
+        },
         504,
     );
     drive(&mut engine, &mut edges, 50, 200);
@@ -111,7 +123,11 @@ fn main() {
     edges[1] = SimEdge::new("Edge-TYO-01", ChaosProfile::with_latency(60.0), 509);
     edges[2] = SimEdge::new("Edge-FRA-01", ChaosProfile::with_latency(110.0), 510);
     drive(&mut engine, &mut edges, 60, 200);
-    for t in [TransportKind::Quic, TransportKind::Udp, TransportKind::TcpTls] {
+    for t in [
+        TransportKind::Quic,
+        TransportKind::Udp,
+        TransportKind::TcpTls,
+    ] {
         engine.report_transport_success(t, now_ms());
     }
     // Long sustained-clean window lets health climb (upgrades need sustain,
@@ -127,7 +143,11 @@ fn main() {
     for ev in engine.telemetry.events.iter().rev().take(8).rev() {
         println!(
             "  t={:>6}  {:<20} {:?} severity={:?} — {}",
-            ev.timestamp, ev.kind.as_str(), ev.route.as_deref().map(edge_of), ev.severity, ev.reason
+            ev.timestamp,
+            ev.kind.as_str(),
+            ev.route.as_deref().map(edge_of),
+            ev.severity,
+            ev.reason
         );
     }
 }
@@ -148,7 +168,10 @@ struct SimEdge {
 
 impl SimEdge {
     fn new(id: &str, profile: ChaosProfile, seed: u64) -> Self {
-        Self { id: id.to_string(), pipeline: PipelineState::from_profile(profile, seed) }
+        Self {
+            id: id.to_string(),
+            pipeline: PipelineState::from_profile(profile, seed),
+        }
     }
 
     fn probe(&mut self, n: u64, tick: u64) -> EdgeObservation {
@@ -160,17 +183,28 @@ impl SimEdge {
                 _ => None,
             })
             .collect();
-        let lost = fates.iter().any(|r| matches!(r, PacketResult::ConnectionDown { .. }))
+        let lost = fates
+            .iter()
+            .any(|r| matches!(r, PacketResult::ConnectionDown { .. }))
             || (fates.len() > 1 && (delivered.len() as f64 / fates.len() as f64) < 0.90);
         let latency = if delivered.is_empty() {
             9999.0
         } else {
             delivered.iter().sum::<u64>() as f64 / delivered.len() as f64
         };
-        let mut js = delivered.windows(2).map(|w| w[1].abs_diff(w[0]) as f64).collect::<Vec<_>>();
+        let mut js = delivered
+            .windows(2)
+            .map(|w| w[1].abs_diff(w[0]) as f64)
+            .collect::<Vec<_>>();
         js.sort_by(|a, b| a.total_cmp(b));
         let jitter = js.get(js.len() / 2).copied().unwrap_or(0.0);
-        EdgeObservation { edge_id: self.id.clone(), latency_ms: latency, jitter_ms: jitter, lost, handshake_ms: None }
+        EdgeObservation {
+            edge_id: self.id.clone(),
+            latency_ms: latency,
+            jitter_ms: jitter,
+            lost,
+            handshake_ms: None,
+        }
     }
 }
 
@@ -180,10 +214,15 @@ fn drive(engine: &mut RouteEngine, edges: &mut [SimEdge], rounds: u64, interval_
         clock += interval_ms;
         for edge in edges.iter_mut() {
             let obs = edge.probe(16, clock);
-            engine.on_edge_observation(&obs, clock).expect("observation accepted");
+            engine
+                .on_edge_observation(&obs, clock)
+                .expect("observation accepted");
         }
     }
-    let route = engine.current_route().map(|c| c.id.clone()).unwrap_or_else(|| "— none —".into());
+    let route = engine
+        .current_route()
+        .map(|c| c.id.clone())
+        .unwrap_or_else(|| "— none —".into());
     let grade = engine.network_health_grade();
     println!(
         "  route={:<24} grade={:<10} health_worse-than-excellent={} rtt={:.1}ms loss={:.2}%",
@@ -196,7 +235,12 @@ fn drive(engine: &mut RouteEngine, edges: &mut [SimEdge], rounds: u64, interval_
             .back()
             .map(|s| s.latency_ms)
             .unwrap_or(0.0),
-        engine.telemetry.samples.back().map(|s| s.packet_loss_ratio * 100.0).unwrap_or(0.0)
+        engine
+            .telemetry
+            .samples
+            .back()
+            .map(|s| s.packet_loss_ratio * 100.0)
+            .unwrap_or(0.0)
     );
     let _ = EventKind::RouteChanged; // (spike kinds surfaced in the event log)
 }

@@ -75,10 +75,30 @@ impl ServerState {
 /// The canonical set of reference edges (spec 31: provider-neutral names).
 pub fn reference_edges(now: u64) -> Vec<EdgeInfo> {
     vec![
-        edge("edge-asia-1", "asia", "edge-asia-1.radin.example:443", now + 86_400_000),
-        edge("edge-mideast-1", "middle-east", "edge-mideast-1.radin.example:443", now + 86_400_000),
-        edge("edge-eu-1", "europe", "edge-eu-1.radin.example:443", now + 86_400_000),
-        edge("edge-na-1", "north-america", "edge-na-1.radin.example:443", now + 86_400_000),
+        edge(
+            "edge-asia-1",
+            "asia",
+            "edge-asia-1.radin.example:443",
+            now + 86_400_000,
+        ),
+        edge(
+            "edge-mideast-1",
+            "middle-east",
+            "edge-mideast-1.radin.example:443",
+            now + 86_400_000,
+        ),
+        edge(
+            "edge-eu-1",
+            "europe",
+            "edge-eu-1.radin.example:443",
+            now + 86_400_000,
+        ),
+        edge(
+            "edge-na-1",
+            "north-america",
+            "edge-na-1.radin.example:443",
+            now + 86_400_000,
+        ),
     ]
 }
 

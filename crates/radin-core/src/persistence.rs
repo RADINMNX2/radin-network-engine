@@ -62,8 +62,19 @@ pub struct Record {
 }
 
 impl Record {
-    pub fn new(kind: RecordKind, key: impl Into<String>, body: serde_json::Value, now: TimestampMs) -> Self {
-        Self { kind, key: key.into(), created_at: now, updated_at: now, body }
+    pub fn new(
+        kind: RecordKind,
+        key: impl Into<String>,
+        body: serde_json::Value,
+        now: TimestampMs,
+    ) -> Self {
+        Self {
+            kind,
+            key: key.into(),
+            created_at: now,
+            updated_at: now,
+            body,
+        }
     }
 
     pub fn decode<T: DeserializeOwned>(&self) -> crate::Result<T> {
@@ -102,7 +113,8 @@ fn chrono_now() -> TimestampMs {
 /// backend is attached.
 #[derive(Debug, Default, Clone)]
 pub struct MemoryStore {
-    inner: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<(RecordKind, String), Record>>>,
+    inner:
+        std::sync::Arc<std::sync::Mutex<std::collections::HashMap<(RecordKind, String), Record>>>,
 }
 
 impl MemoryStore {
@@ -121,7 +133,12 @@ impl ControlStore for MemoryStore {
     }
 
     fn get(&self, kind: RecordKind, key: &str) -> crate::Result<Option<Record>> {
-        Ok(self.inner.lock().unwrap().get(&(kind, key.to_string())).cloned())
+        Ok(self
+            .inner
+            .lock()
+            .unwrap()
+            .get(&(kind, key.to_string()))
+            .cloned())
     }
 
     fn list(&self, kind: RecordKind) -> crate::Result<Vec<Record>> {
@@ -154,17 +171,21 @@ pub struct SqliteStore {
 #[cfg(feature = "sqlite")]
 impl SqliteStore {
     pub fn open(path: &std::path::Path) -> crate::Result<Self> {
-        let conn = rusqlite::Connection::open(path)
-            .map_err(|e| crate::Error::Storage(e.to_string()))?;
+        let conn =
+            rusqlite::Connection::open(path).map_err(|e| crate::Error::Storage(e.to_string()))?;
         Self::init_schema(&conn)?;
-        Ok(Self { conn: std::sync::Arc::new(std::sync::Mutex::new(conn)) })
+        Ok(Self {
+            conn: std::sync::Arc::new(std::sync::Mutex::new(conn)),
+        })
     }
 
     pub fn in_memory() -> crate::Result<Self> {
         let conn = rusqlite::Connection::open_in_memory()
             .map_err(|e| crate::Error::Storage(e.to_string()))?;
         Self::init_schema(&conn)?;
-        Ok(Self { conn: std::sync::Arc::new(std::sync::Mutex::new(conn)) })
+        Ok(Self {
+            conn: std::sync::Arc::new(std::sync::Mutex::new(conn)),
+        })
     }
 
     fn init_schema(conn: &rusqlite::Connection) -> crate::Result<()> {
@@ -219,8 +240,10 @@ impl ControlStore for SqliteStore {
             })
             .map_err(|e| crate::Error::Storage(e.to_string()))?;
         if let Some(row) = rows.into_iter().next() {
-            let (k, key, created, updated, body) = row.map_err(|e| crate::Error::Storage(e.to_string()))?;
-            let kind = RecordKind::parse(&k).ok_or_else(|| crate::Error::Storage("unknown kind".into()))?;
+            let (k, key, created, updated, body) =
+                row.map_err(|e| crate::Error::Storage(e.to_string()))?;
+            let kind = RecordKind::parse(&k)
+                .ok_or_else(|| crate::Error::Storage("unknown kind".into()))?;
             let rec = Record {
                 kind,
                 key,
@@ -250,7 +273,8 @@ impl ControlStore for SqliteStore {
             .map_err(|e| crate::Error::Storage(e.to_string()))?;
         let mut out = Vec::new();
         for row in rows {
-            let (key, created, updated, body) = row.map_err(|e| crate::Error::Storage(e.to_string()))?;
+            let (key, created, updated, body) =
+                row.map_err(|e| crate::Error::Storage(e.to_string()))?;
             out.push(Record {
                 kind,
                 key,
@@ -307,7 +331,8 @@ impl Persistence {
     }
 
     pub fn clear_pending_op(&self, operation_id: &str) -> crate::Result<()> {
-        self.store.delete(RecordKind::PendingControlOp, operation_id)
+        self.store
+            .delete(RecordKind::PendingControlOp, operation_id)
     }
 }
 
@@ -319,13 +344,29 @@ mod tests {
     #[test]
     fn memory_store_roundtrips_all_kinds() {
         let store = MemoryStore::new();
-        let rec = Record::new(RecordKind::OptimizationSettings, "policy", serde_json::json!({"x": 1}), 5);
+        let rec = Record::new(
+            RecordKind::OptimizationSettings,
+            "policy",
+            serde_json::json!({"x": 1}),
+            5,
+        );
         store.put(&rec).unwrap();
-        let got = store.get(RecordKind::OptimizationSettings, "policy").unwrap().unwrap();
+        let got = store
+            .get(RecordKind::OptimizationSettings, "policy")
+            .unwrap()
+            .unwrap();
         assert_eq!(got.body, serde_json::json!({"x": 1}));
-        assert_eq!(store.list(RecordKind::OptimizationSettings).unwrap().len(), 1);
-        store.delete(RecordKind::OptimizationSettings, "policy").unwrap();
-        assert!(store.get(RecordKind::OptimizationSettings, "policy").unwrap().is_none());
+        assert_eq!(
+            store.list(RecordKind::OptimizationSettings).unwrap().len(),
+            1
+        );
+        store
+            .delete(RecordKind::OptimizationSettings, "policy")
+            .unwrap();
+        assert!(store
+            .get(RecordKind::OptimizationSettings, "policy")
+            .unwrap()
+            .is_none());
     }
 
     #[test]
@@ -341,7 +382,10 @@ mod tests {
                 0,
             ))
             .unwrap();
-        let rec = store.get(RecordKind::RouteProfile, "hysteresis").unwrap().unwrap();
+        let rec = store
+            .get(RecordKind::RouteProfile, "hysteresis")
+            .unwrap()
+            .unwrap();
         let restored: crate::hysteresis::HysteresisState = rec.decode().unwrap();
         assert_eq!(restored.current_route_id, "edge-a");
     }
@@ -361,19 +405,33 @@ mod tests {
     #[test]
     fn unknown_kind_string_is_rejected() {
         assert_eq!(RecordKind::parse("game_traffic"), None);
-        assert_eq!(RecordKind::parse("pending_control_op"), Some(RecordKind::PendingControlOp));
+        assert_eq!(
+            RecordKind::parse("pending_control_op"),
+            Some(RecordKind::PendingControlOp)
+        );
     }
 
     #[cfg(feature = "sqlite")]
     #[test]
     fn sqlite_store_works() {
         let store = SqliteStore::in_memory().unwrap();
-        let rec = Record::new(RecordKind::EdgeConfig, "edge-a", serde_json::json!({"region": "sg"}), 1);
+        let rec = Record::new(
+            RecordKind::EdgeConfig,
+            "edge-a",
+            serde_json::json!({"region": "sg"}),
+            1,
+        );
         store.put(&rec).unwrap();
-        let got = store.get(RecordKind::EdgeConfig, "edge-a").unwrap().unwrap();
+        let got = store
+            .get(RecordKind::EdgeConfig, "edge-a")
+            .unwrap()
+            .unwrap();
         assert_eq!(got.body["region"], "sg");
         assert_eq!(store.list(RecordKind::EdgeConfig).unwrap().len(), 1);
         store.delete(RecordKind::EdgeConfig, "edge-a").unwrap();
-        assert!(store.get(RecordKind::EdgeConfig, "edge-a").unwrap().is_none());
+        assert!(store
+            .get(RecordKind::EdgeConfig, "edge-a")
+            .unwrap()
+            .is_none());
     }
 }

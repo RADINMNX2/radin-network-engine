@@ -233,12 +233,18 @@ mod tests {
 
     #[test]
     fn network_type_has_benchmarked_keepalive_hints() {
-        assert!(NetworkType::Wifi.default_keepalive_base_ms() > NetworkType::FourG.default_keepalive_base_ms());
+        assert!(
+            NetworkType::Wifi.default_keepalive_base_ms()
+                > NetworkType::FourG.default_keepalive_base_ms()
+        );
     }
 
     #[test]
     fn fallback_order_ends_in_direct() {
-        assert_eq!(*TransportKind::FALLBACK_ORDER.last().unwrap(), TransportKind::Direct);
+        assert_eq!(
+            *TransportKind::FALLBACK_ORDER.last().unwrap(),
+            TransportKind::Direct
+        );
         assert!(!TransportKind::Direct.uses_edge());
     }
 

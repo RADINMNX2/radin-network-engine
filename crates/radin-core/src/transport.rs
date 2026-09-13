@@ -153,9 +153,14 @@ pub fn select_transport(results: &[BenchmarkResult]) -> Option<TransportKind> {
             packet_loss_ratio: r.packet_loss_ratio,
             stability: r.stability,
             handshake_latency_ms: r.handshake_latency_ms,
-            reconnect_rate: if r.reconnect_time_ms <= 0.0 { 0.0 } else { 60_000.0 / r.reconnect_time_ms.max(1.0) },
+            reconnect_rate: if r.reconnect_time_ms <= 0.0 {
+                0.0
+            } else {
+                60_000.0 / r.reconnect_time_ms.max(1.0)
+            },
         };
-        let (score, _) = crate::scoring::score_snapshot(&crate::scoring::ScoreWeights::default(), &metrics);
+        let (score, _) =
+            crate::scoring::score_snapshot(&crate::scoring::ScoreWeights::default(), &metrics);
         match best {
             None => best = Some((score, r.transport)),
             Some((prev, _)) if score > prev => best = Some((score, r.transport)),

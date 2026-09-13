@@ -143,7 +143,11 @@ mod tests {
         for _ in 0..1 {
             sm.record_failure();
         }
-        assert_eq!(sm.state, TransportHealth::Healthy, "single failure is not enough");
+        assert_eq!(
+            sm.state,
+            TransportHealth::Healthy,
+            "single failure is not enough"
+        );
         sm.record_failure();
         assert_eq!(sm.state, TransportHealth::Degraded);
         for _ in 0..1 {

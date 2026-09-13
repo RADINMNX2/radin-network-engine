@@ -182,12 +182,16 @@ pub struct ClientIdempotencyGuard {
 
 impl ClientIdempotencyGuard {
     pub fn new(ttl_ms: u64) -> Self {
-        Self { seen: std::collections::HashMap::new(), ttl_ms }
+        Self {
+            seen: std::collections::HashMap::new(),
+            ttl_ms,
+        }
     }
 
     /// true → this op may be sent (first time). false → duplicate, skip.
     pub fn first_time(&mut self, op: &ControlOp, now: TimestampMs) -> bool {
-        self.seen.retain(|_, ts| now.saturating_sub(*ts) < self.ttl_ms);
+        self.seen
+            .retain(|_, ts| now.saturating_sub(*ts) < self.ttl_ms);
         if self.seen.contains_key(&op.idempotency_key.0) {
             return false;
         }
@@ -254,6 +258,9 @@ mod tests {
 
     #[test]
     fn proto_tag_matches_schema_names() {
-        assert_eq!(ControlOp::new(ControlOpKind::ConfigUpdate, 0).proto_tag(), "ConfigUpdate");
+        assert_eq!(
+            ControlOp::new(ControlOpKind::ConfigUpdate, 0).proto_tag(),
+            "ConfigUpdate"
+        );
     }
 }

@@ -40,7 +40,12 @@ impl Session {
     }
 
     /// Resume the *same* session with a fresh connection.
-    pub fn reconnect(&mut self, transport: TransportKind, edge_id: Option<String>, now: TimestampMs) {
+    pub fn reconnect(
+        &mut self,
+        transport: TransportKind,
+        edge_id: Option<String>,
+        now: TimestampMs,
+    ) {
         self.connection_id = Uuid::new_v4().to_string();
         self.transport = transport;
         self.edge_id = edge_id;

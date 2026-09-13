@@ -111,7 +111,11 @@ pub fn next_interval<R: Rng>(rng: &mut R, base_ms: u64, policy: &JitterPolicy) -
 }
 
 /// One-stop decision for a single connection heartbeat.
-pub fn decide<R: Rng>(rng: &mut R, input: &KeepaliveInput, policy: &JitterPolicy) -> KeepaliveDecision {
+pub fn decide<R: Rng>(
+    rng: &mut R,
+    input: &KeepaliveInput,
+    policy: &JitterPolicy,
+) -> KeepaliveDecision {
     let base = base_interval(input);
     if base == 0 {
         return KeepaliveDecision {
@@ -183,13 +187,22 @@ mod tests {
             ..KeepaliveInput::default()
         };
         let b = base_interval(&with_nat);
-        assert!((2_000..=6_000).contains(&b), "base {b} should hug the NAT hint");
+        assert!(
+            (2_000..=6_000).contains(&b),
+            "base {b} should hug the NAT hint"
+        );
     }
 
     #[test]
     fn low_battery_tightens_interval() {
-        let high = KeepaliveInput { battery: BatteryState::Charging, ..KeepaliveInput::default() };
-        let low = KeepaliveInput { battery: BatteryState::Critical, ..KeepaliveInput::default() };
+        let high = KeepaliveInput {
+            battery: BatteryState::Charging,
+            ..KeepaliveInput::default()
+        };
+        let low = KeepaliveInput {
+            battery: BatteryState::Critical,
+            ..KeepaliveInput::default()
+        };
         assert!(base_interval(&low) < base_interval(&high));
     }
 }

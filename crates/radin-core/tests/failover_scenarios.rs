@@ -40,7 +40,13 @@ mod harness {
     }
 
     impl SimEdge {
-        pub fn new(id: &str, region: &str, address: &str, profile: ChaosProfile, seed: u64) -> Self {
+        pub fn new(
+            id: &str,
+            region: &str,
+            address: &str,
+            profile: ChaosProfile,
+            seed: u64,
+        ) -> Self {
             Self {
                 id: id.to_string(),
                 region: region.to_string(),
@@ -60,7 +66,9 @@ mod harness {
                     _ => None,
                 })
                 .collect();
-            let lost = fates.iter().any(|r| matches!(r, PacketResult::ConnectionDown { .. }))
+            let lost = fates
+                .iter()
+                .any(|r| matches!(r, PacketResult::ConnectionDown { .. }))
                 || (fates.len() > 1 && (delivered.len() as f64 / fates.len() as f64) < 0.90);
             let latency = if delivered.is_empty() {
                 9999.0
@@ -73,7 +81,13 @@ mod harness {
                 .collect::<Vec<_>>();
             js.sort_by(|a, b| a.total_cmp(b));
             let jitter = js.get(js.len() / 2).copied().unwrap_or(0.0);
-            EdgeObservation { edge_id: self.id.clone(), latency_ms: latency, jitter_ms: jitter, lost, handshake_ms: None }
+            EdgeObservation {
+                edge_id: self.id.clone(),
+                latency_ms: latency,
+                jitter_ms: jitter,
+                lost,
+                handshake_ms: None,
+            }
         }
     }
 
@@ -87,11 +101,18 @@ mod harness {
     impl Sim {
         pub fn new(cfg: EngineConfig, edges: Vec<SimEdge>) -> Self {
             let mut engine = RouteEngine::new(cfg);
-            let infos: Vec<EdgeInfo> = edges.iter().map(|e| edge_info(&e.id, &e.region, &e.address)).collect();
+            let infos: Vec<EdgeInfo> = edges
+                .iter()
+                .map(|e| edge_info(&e.id, &e.region, &e.address))
+                .collect();
             engine.set_edges(infos, 0).unwrap();
             engine.set_network_type(NetworkType::Wifi, 0);
             engine.set_vpn_state(VpnState::Disconnected, 0);
-            Self { engine, edges, now: 0 }
+            Self {
+                engine,
+                edges,
+                now: 0,
+            }
         }
 
         /// Run `rounds` probe rounds at `interval_ms` spacing, feeding each
@@ -120,7 +141,11 @@ mod harness {
             id: id.to_string(),
             region: region.to_string(),
             address: address.to_string(),
-            supported_transports: vec![TransportKind::Quic, TransportKind::Udp, TransportKind::TcpTls],
+            supported_transports: vec![
+                TransportKind::Quic,
+                TransportKind::Udp,
+                TransportKind::TcpTls,
+            ],
             priority: None,
             expires_at: 1_000_000_000,
             signature_b64: None,
@@ -156,15 +181,31 @@ fn fast_path_is_stable_on_healthy_top_edge() {
     let mut sim = Sim::new(
         default_cfg(),
         vec![
-            SimEdge::new("Edge-SG-01", "sgp", "10.0.0.1", ChaosProfile::with_latency(15.0), 501),
-            SimEdge::new("Edge-TYO-01", "tyo", "10.0.0.2", ChaosProfile::with_latency(90.0), 502),
+            SimEdge::new(
+                "Edge-SG-01",
+                "sgp",
+                "10.0.0.1",
+                ChaosProfile::with_latency(15.0),
+                501,
+            ),
+            SimEdge::new(
+                "Edge-TYO-01",
+                "tyo",
+                "10.0.0.2",
+                ChaosProfile::with_latency(90.0),
+                502,
+            ),
         ],
     );
     sim.run(10, 200);
     let first = route_id(&sim);
     assert!(first.is_some(), "engine must have a route");
     sim.run(30, 200);
-    assert_eq!(route_id(&sim), first, "no flapping while routes stay healthy");
+    assert_eq!(
+        route_id(&sim),
+        first,
+        "no flapping while routes stay healthy"
+    );
 }
 
 /// The current edge silently degrades (loss creeps in); once the degradation
@@ -174,18 +215,44 @@ fn sustained_degradation_eventually_switches_edge() {
     let mut sim = Sim::new(
         default_cfg(),
         vec![
-            SimEdge::new("Edge-SG-01", "sgp", "10.0.0.1", ChaosProfile::with_latency(15.0), 601),
-            SimEdge::new("Edge-FRA-01", "fra", "10.0.0.3", ChaosProfile::with_latency(120.0), 602),
+            SimEdge::new(
+                "Edge-SG-01",
+                "sgp",
+                "10.0.0.1",
+                ChaosProfile::with_latency(15.0),
+                601,
+            ),
+            SimEdge::new(
+                "Edge-FRA-01",
+                "fra",
+                "10.0.0.3",
+                ChaosProfile::with_latency(120.0),
+                602,
+            ),
         ],
     );
     sim.run(10, 200);
     let before = route_id(&sim);
-    assert_eq!(before.as_deref(), Some("Edge-SG-01-quic"), "SG wins on latency");
+    assert_eq!(
+        before.as_deref(),
+        Some("Edge-SG-01-quic"),
+        "SG wins on latency"
+    );
     // Sickness: rear the SG edge into heavy loss + slow.
-    sim.edges[0] = SimEdge::new("Edge-SG-01", "sgp", "10.0.0.1", ChaosProfile::with_loss(0.08), 603);
+    sim.edges[0] = SimEdge::new(
+        "Edge-SG-01",
+        "sgp",
+        "10.0.0.1",
+        ChaosProfile::with_loss(0.08),
+        603,
+    );
     sim.run(60, 200); // 12 s of sustained degradation.
     let after = route_id(&sim);
-    assert_ne!(after.as_deref(), Some("Edge-SG-01-quic"), "engine must leave the degrading edge");
+    assert_ne!(
+        after.as_deref(),
+        Some("Edge-SG-01-quic"),
+        "engine must leave the degrading edge"
+    );
 }
 
 /// Complete loss of every edge: the engine fails back through the chain and
@@ -195,8 +262,20 @@ fn total_outage_fails_safe_to_direct_when_allowed() {
     let mut sim = Sim::new(
         default_cfg(),
         vec![
-            SimEdge::new("Edge-SG-01", "sgp", "10.0.0.1", ChaosProfile::with_latency(15.0), 701),
-            SimEdge::new("Edge-TYO-01", "tyo", "10.0.0.2", ChaosProfile::with_latency(20.0), 702),
+            SimEdge::new(
+                "Edge-SG-01",
+                "sgp",
+                "10.0.0.1",
+                ChaosProfile::with_latency(15.0),
+                701,
+            ),
+            SimEdge::new(
+                "Edge-TYO-01",
+                "tyo",
+                "10.0.0.2",
+                ChaosProfile::with_latency(20.0),
+                702,
+            ),
         ],
     );
     sim.run(6, 200);
@@ -207,7 +286,10 @@ fn total_outage_fails_safe_to_direct_when_allowed() {
     sim.edges[1] = SimEdge::new("Edge-TYO-01", "tyo", "10.0.0.2", death, 704);
     sim.run(40, 200);
     assert_eq!(sim.engine.fail_safe_action(), TransportKind::Direct);
-    assert!(sim.engine.may_forward_direct(), "allow-direct policy lets us fall back");
+    assert!(
+        sim.engine.may_forward_direct(),
+        "allow-direct policy lets us fall back"
+    );
     // The data plane's typed signals then march the fallback chain down to
     // Direct (spec 6/13), advancing one transport at a time in order.
     for (i, t) in [
@@ -220,13 +302,24 @@ fn total_outage_fails_safe_to_direct_when_allowed() {
     .into_iter()
     .enumerate()
     {
-        assert_eq!(sim.engine.fallback.current(), t, "chain position {i} must be {t:?} before failing it");
+        assert_eq!(
+            sim.engine.fallback.current(),
+            t,
+            "chain position {i} must be {t:?} before failing it"
+        );
         for _ in 0..8 {
             sim.engine.report_transport_failure(t, sim.now);
         }
     }
-    assert_eq!(sim.engine.fallback.current(), TransportKind::Direct, "chain ends at Direct");
-    assert!(sim.engine.counters.transport_fallbacks >= 1, "fallback must be recorded");
+    assert_eq!(
+        sim.engine.fallback.current(),
+        TransportKind::Direct,
+        "chain ends at Direct"
+    );
+    assert!(
+        sim.engine.counters.transport_fallbacks >= 1,
+        "fallback must be recorded"
+    );
 }
 
 /// The StrictVpnOnly policy must never leak traffic to Direct (spec 35).
@@ -242,7 +335,10 @@ fn strict_vpn_policy_never_leaks_direct() {
         vec![SimEdge::new("Edge-SG-01", "sgp", "10.0.0.1", death, 801)],
     );
     sim.run(40, 200);
-    assert!(!sim.engine.may_forward_direct(), "must NOT leak direct under strict policy");
+    assert!(
+        !sim.engine.may_forward_direct(),
+        "must NOT leak direct under strict policy"
+    );
     // The data plane is gated on may_forward_direct before honoring the
     // fail-safe action; direct forwarding is simply refused.
 }
@@ -264,13 +360,19 @@ fn recovery_after_outage_restores_best_route_and_health() {
     // Edge recovers: probe healthy, reselect, resume transport.
     sim.edges[0] = SimEdge::new("Edge-SG-01", "sgp", "10.0.0.1", healthy, 902);
     sim.run(10, 200);
-    assert_eq!(route_id(&sim).as_deref(), Some("Edge-SG-01-quic"), "recovery reselects best route");
-    sim.engine.report_transport_success(TransportKind::Quic, sim.now);
+    assert_eq!(
+        route_id(&sim).as_deref(),
+        Some("Edge-SG-01-quic"),
+        "recovery reselects best route"
+    );
+    sim.engine
+        .report_transport_success(TransportKind::Quic, sim.now);
     // Let the health tracker's sustain window elapse before expecting a climb.
     sim.run(40, 200);
     let recovered = sim.engine.network_health_grade();
     assert!(
-        recovered.is_better_than(NetworkHealthGrade::Critical) || recovered == NetworkHealthGrade::Good,
+        recovered.is_better_than(NetworkHealthGrade::Critical)
+            || recovered == NetworkHealthGrade::Good,
         "health must recover after sustained improvement"
     );
 }
@@ -280,18 +382,31 @@ fn recovery_after_outage_restores_best_route_and_health() {
 fn circuit_breaker_quarantines_failing_transport() {
     let mut sim = Sim::new(
         default_cfg(),
-        vec![SimEdge::new("Edge-SG-01", "sgp", "10.0.0.1", ChaosProfile::with_latency(10.0), 1001)],
+        vec![SimEdge::new(
+            "Edge-SG-01",
+            "sgp",
+            "10.0.0.1",
+            ChaosProfile::with_latency(10.0),
+            1001,
+        )],
     );
     sim.run(6, 200);
     let route = sim.engine.current_route().expect("route").clone();
     for _ in 0..8 {
-        sim.engine.report_transport_failure(route.transport, sim.now);
+        sim.engine
+            .report_transport_failure(route.transport, sim.now);
     }
     // Breakers are keyed by "<route-id>:<transport>".
     let key = format!("{}:{}", route.id, route.transport);
     let breaker = sim.engine.breaker(&key).expect("breaker exists");
-    assert!(matches!(breaker.state, CircuitState::Open { .. }), "repeated failures trip the breaker");
-    assert!(sim.engine.counters.circuit_trips >= 1, "circuit trip counted");
+    assert!(
+        matches!(breaker.state, CircuitState::Open { .. }),
+        "repeated failures trip the breaker"
+    );
+    assert!(
+        sim.engine.counters.circuit_trips >= 1,
+        "circuit trip counted"
+    );
 }
 
 /// Degradation surfaces as structured events (spec 26, spec 29 vocabulary).
@@ -299,13 +414,28 @@ fn circuit_breaker_quarantines_failing_transport() {
 fn spikes_surface_as_structured_events() {
     let mut sim = Sim::new(
         default_cfg(),
-        vec![SimEdge::new("Edge-SG-01", "sgp", "10.0.0.1", ChaosProfile::with_latency(10.0), 1101)],
+        vec![SimEdge::new(
+            "Edge-SG-01",
+            "sgp",
+            "10.0.0.1",
+            ChaosProfile::with_latency(10.0),
+            1101,
+        )],
     );
     sim.run(4, 200);
     let before = sim.engine.telemetry.events.len();
-    sim.edges[0] = SimEdge::new("Edge-SG-01", "sgp", "10.0.0.1", ChaosProfile::with_loss(0.10), 1102);
+    sim.edges[0] = SimEdge::new(
+        "Edge-SG-01",
+        "sgp",
+        "10.0.0.1",
+        ChaosProfile::with_loss(0.10),
+        1102,
+    );
     sim.run(12, 200);
-    assert!(sim.engine.telemetry.events.len() > before, "degradation must produce events");
+    assert!(
+        sim.engine.telemetry.events.len() > before,
+        "degradation must produce events"
+    );
     let kinds: Vec<EventKind> = sim.engine.telemetry.events.iter().map(|e| e.kind).collect();
     assert!(
         kinds.contains(&EventKind::PacketLossSpike)
@@ -322,7 +452,13 @@ fn spikes_surface_as_structured_events() {
 fn telemetry_export_is_honest_and_real() {
     let mut sim = Sim::new(
         default_cfg(),
-        vec![SimEdge::new("Edge-SG-01", "sgp", "10.0.0.1", ChaosProfile::with_latency(20.0), 1201)],
+        vec![SimEdge::new(
+            "Edge-SG-01",
+            "sgp",
+            "10.0.0.1",
+            ChaosProfile::with_latency(20.0),
+            1201,
+        )],
     );
     sim.run(6, 200);
     let rep = sim.engine.diagnostic_report(sim.now).unwrap();
@@ -341,10 +477,19 @@ fn telemetry_export_is_honest_and_real() {
 fn restrictive_network_symptom_is_recorded() {
     let mut sim = Sim::new(
         default_cfg(),
-        vec![SimEdge::new("Edge-SG-01", "sgp", "10.0.0.1", ChaosProfile::with_latency(25.0), 1301)],
+        vec![SimEdge::new(
+            "Edge-SG-01",
+            "sgp",
+            "10.0.0.1",
+            ChaosProfile::with_latency(25.0),
+            1301,
+        )],
     );
     sim.engine.report_udp_timeout(sim.now);
     sim.engine.report_udp_timeout(sim.now + 1);
     sim.engine.report_udp_timeout(sim.now + 2);
-    assert!(!sim.engine.restriction_description().is_empty(), "restriction hint must be actionable");
+    assert!(
+        !sim.engine.restriction_description().is_empty(),
+        "restriction hint must be actionable"
+    );
 }

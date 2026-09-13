@@ -12,7 +12,9 @@ use crate::TimestampMs;
 pub enum CircuitState {
     Closed,
     /// Fails open until `until` (in ms epoch). All traffic is short-circuited.
-    Open { until: TimestampMs },
+    Open {
+        until: TimestampMs,
+    },
     /// Single trial probe allowed.
     HalfOpen,
 }
@@ -114,11 +116,15 @@ impl CircuitBreaker {
         match self.state {
             CircuitState::HalfOpen => {
                 self.trip_count += 1;
-                self.state = CircuitState::Open { until: now + self.cfg.open_cooldown_ms };
+                self.state = CircuitState::Open {
+                    until: now + self.cfg.open_cooldown_ms,
+                };
             }
             CircuitState::Closed if self.consecutive_failures >= self.cfg.failure_threshold => {
                 self.trip_count += 1;
-                self.state = CircuitState::Open { until: now + self.cfg.open_cooldown_ms };
+                self.state = CircuitState::Open {
+                    until: now + self.cfg.open_cooldown_ms,
+                };
             }
             _ => {}
         }
@@ -142,30 +148,45 @@ mod tests {
 
     #[test]
     fn opens_then_half_opens_after_cooldown() {
-        let mut cb = CircuitBreaker::new("t", CircuitConfig {
-            failure_threshold: 1,
-            open_cooldown_ms: 1_000,
-            ..CircuitConfig::default()
-        });
+        let mut cb = CircuitBreaker::new(
+            "t",
+            CircuitConfig {
+                failure_threshold: 1,
+                open_cooldown_ms: 1_000,
+                ..CircuitConfig::default()
+            },
+        );
         cb.record_failure(0);
         assert!(!cb.allow(500), "still OPEN");
-        assert!(cb.allow(1_001), "cooldown expired → HALF_OPEN probe allowed");
+        assert!(
+            cb.allow(1_001),
+            "cooldown expired → HALF_OPEN probe allowed"
+        );
         assert!(matches!(cb.state, CircuitState::HalfOpen));
         cb.record_failure(1_010);
-        assert!(matches!(cb.state, CircuitState::Open { .. }), "half-open probe failure → OPEN");
+        assert!(
+            matches!(cb.state, CircuitState::Open { .. }),
+            "half-open probe failure → OPEN"
+        );
     }
 
     #[test]
     fn half_open_requires_successes_before_closing() {
-        let mut cb = CircuitBreaker::new("t", CircuitConfig {
-            failure_threshold: 1,
-            open_cooldown_ms: 1_000,
-            half_open_required_successes: 2,
-        });
+        let mut cb = CircuitBreaker::new(
+            "t",
+            CircuitConfig {
+                failure_threshold: 1,
+                open_cooldown_ms: 1_000,
+                half_open_required_successes: 2,
+            },
+        );
         cb.record_failure(0);
         cb.allow(1_000);
         cb.record_success();
-        assert!(matches!(cb.state, CircuitState::HalfOpen), "needs 2 successes");
+        assert!(
+            matches!(cb.state, CircuitState::HalfOpen),
+            "needs 2 successes"
+        );
         cb.record_success();
         assert!(matches!(cb.state, CircuitState::Closed));
         assert_eq!(cb.trip_count, 1);
@@ -179,6 +200,9 @@ mod tests {
         cb.record_success();
         cb.record_failure(2);
         cb.record_failure(3);
-        assert!(matches!(cb.state, CircuitState::Closed), "threshold reset by success");
+        assert!(
+            matches!(cb.state, CircuitState::Closed),
+            "threshold reset by success"
+        );
     }
 }

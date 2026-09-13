@@ -92,7 +92,12 @@ pub fn next_retry_delay<R: Rng>(
     if class == RetryClass::Dataplane {
         return None; // no application-level retries on the real-time path
     }
-    Some(full_jitter_backoff(rng, class.base_delay_ms(), class.cap_ms(), attempt))
+    Some(full_jitter_backoff(
+        rng,
+        class.base_delay_ms(),
+        class.cap_ms(),
+        attempt,
+    ))
 }
 
 #[cfg(test)]

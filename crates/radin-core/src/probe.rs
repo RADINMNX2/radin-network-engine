@@ -22,7 +22,10 @@ impl ProbeKind {
     pub fn is_lightweight(self) -> bool {
         matches!(
             self,
-            ProbeKind::DnsResolution | ProbeKind::TcpConnect | ProbeKind::UdpProbe | ProbeKind::QuicHandshake
+            ProbeKind::DnsResolution
+                | ProbeKind::TcpConnect
+                | ProbeKind::UdpProbe
+                | ProbeKind::QuicHandshake
         )
     }
 
@@ -51,7 +54,12 @@ pub struct ProbeBudget {
 
 impl ProbeBudget {
     pub fn new(kind: ProbeKind) -> Self {
-        Self { kind, min_interval_ms: kind.default_min_interval_ms(), last_sent_at: None, sent: 0 }
+        Self {
+            kind,
+            min_interval_ms: kind.default_min_interval_ms(),
+            last_sent_at: None,
+            sent: 0,
+        }
     }
 
     /// May we send now? Pure rate-limit logic; `now` must be monotonic-ish.
@@ -157,7 +165,10 @@ mod tests {
 
     #[test]
     fn scheduler_respects_disabled_state() {
-        let mut s = ProbeScheduler { enabled: false, ..ProbeScheduler::default() };
+        let mut s = ProbeScheduler {
+            enabled: false,
+            ..ProbeScheduler::default()
+        };
         assert!(!s.may_send(ProbeKind::UdpProbe, 0));
         s.enabled = true;
         assert!(s.may_send(ProbeKind::UdpProbe, 0));

@@ -11,14 +11,14 @@
 
 pub mod traits;
 
-#[cfg(feature = "udp")]
-pub mod udp;
-#[cfg(feature = "tcp")]
-pub mod tcp;
-#[cfg(feature = "quic")]
-pub mod quic;
 #[cfg(feature = "http2")]
 pub mod h2;
+#[cfg(feature = "quic")]
+pub mod quic;
+#[cfg(feature = "tcp")]
+pub mod tcp;
+#[cfg(feature = "udp")]
+pub mod udp;
 #[cfg(feature = "ws")]
 pub mod ws;
 

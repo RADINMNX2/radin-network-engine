@@ -43,12 +43,11 @@ fn build_client_config(crypto: &CryptoConfig) -> Result<quinn::ClientConfig> {
     let _ = rustls::crypto::ring::default_provider().install_default();
     let client = match crypto {
         CryptoConfig::Dev => {
-            let mut params =
-                rcgen::CertificateParams::new(vec!["localhost".to_string()])
-                    .map_err(|e| TransportError::Handshake(e.to_string()))?;
-            params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
-            let key_pair = rcgen::KeyPair::generate()
+            let mut params = rcgen::CertificateParams::new(vec!["localhost".to_string()])
                 .map_err(|e| TransportError::Handshake(e.to_string()))?;
+            params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
+            let key_pair =
+                rcgen::KeyPair::generate().map_err(|e| TransportError::Handshake(e.to_string()))?;
             let cert = params
                 .self_signed(&key_pair)
                 .map_err(|e| TransportError::Handshake(e.to_string()))?;
@@ -84,8 +83,12 @@ impl QuicTransport {
         handshake_timeout: Duration,
     ) -> Result<Self> {
         let client_config = build_client_config(&crypto)?;
-        let mut endpoint = quinn::Endpoint::client("0.0.0.0:0".parse().map_err(|e: std::net::AddrParseError| TransportError::Handshake(e.to_string()))?)
-            .map_err(|e| TransportError::Handshake(e.to_string()))?;
+        let mut endpoint = quinn::Endpoint::client(
+            "0.0.0.0:0"
+                .parse()
+                .map_err(|e: std::net::AddrParseError| TransportError::Handshake(e.to_string()))?,
+        )
+        .map_err(|e| TransportError::Handshake(e.to_string()))?;
         endpoint.set_default_client_config(client_config);
         let connecting = endpoint
             .connect(addr, server_name)
@@ -144,7 +147,8 @@ impl Transport for QuicTransport {
             Ok::<(), std::io::Error>(())
         })
         .map_err(TransportError::Io)?;
-        send.finish().map_err(|e| TransportError::Failed(e.to_string()))
+        send.finish()
+            .map_err(|e| TransportError::Failed(e.to_string()))
     }
 
     fn recv(&mut self) -> std::result::Result<Option<RecvResult>, TransportError> {
@@ -155,7 +159,11 @@ impl Transport for QuicTransport {
         match n {
             Some(n) if n > 0 => {
                 buf.truncate(n);
-                Ok(Some(RecvResult { bytes: buf, sequence: None, received_at_ms: 0 }))
+                Ok(Some(RecvResult {
+                    bytes: buf,
+                    sequence: None,
+                    received_at_ms: 0,
+                }))
             }
             _ => Ok(None),
         }

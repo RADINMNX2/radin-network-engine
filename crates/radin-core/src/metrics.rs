@@ -25,7 +25,13 @@ pub struct WindowStats {
 
 impl WindowStats {
     pub fn new(capacity: usize) -> Self {
-        Self { capacity: capacity.max(1), samples: Vec::with_capacity(capacity.max(1)), sent: 0, lost: 0, last_sample_at: None }
+        Self {
+            capacity: capacity.max(1),
+            samples: Vec::with_capacity(capacity.max(1)),
+            sent: 0,
+            lost: 0,
+            last_sample_at: None,
+        }
     }
 
     pub fn record_latency(&mut self, latency_ms: f64, at: u64) {
@@ -60,7 +66,12 @@ impl WindowStats {
         if self.samples.len() < 2 {
             return Some(0.0);
         }
-        let var = self.samples.iter().map(|x| (x - avg) * (x - avg)).sum::<f64>() / self.samples.len() as f64;
+        let var = self
+            .samples
+            .iter()
+            .map(|x| (x - avg) * (x - avg))
+            .sum::<f64>()
+            / self.samples.len() as f64;
         Some(var.sqrt())
     }
 

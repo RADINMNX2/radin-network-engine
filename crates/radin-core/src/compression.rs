@@ -26,12 +26,12 @@ pub fn looks_already_compressed(data: &[u8]) -> bool {
     }
     // gzip/zlib/deflate/zstd magic-bytes and audio/video/image containers.
     let prefixes: &[&[u8]] = &[
-        &[0x1f, 0x8b],       // gzip
+        &[0x1f, 0x8b],             // gzip
         &[0x28, 0xb5, 0x2f, 0xfd], // zstd
-        &[0x78, 0x01],       // zlib (no compression)
-        &[0x78, 0x9c],       // zlib default
+        &[0x78, 0x01],             // zlib (no compression)
+        &[0x78, 0x9c],             // zlib default
         &[0x50, 0x4b, 0x03, 0x04], // zip
-        &[0xff, 0xd8, 0xff], // jpeg
+        &[0xff, 0xd8, 0xff],       // jpeg
     ];
     prefixes.iter().any(|p| data.starts_with(p))
 }

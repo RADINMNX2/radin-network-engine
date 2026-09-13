@@ -49,9 +49,15 @@ pub enum RouteVerdict {
     /// Stay on the current route.
     Keep,
     /// Switch to `candidate_id`.
-    Switch { candidate_id: String, reason: SwitchReason },
+    Switch {
+        candidate_id: String,
+        reason: SwitchReason,
+    },
     /// Candidate is in cooldown or insufficiently better.
-    NotYet { candidate_id: String, reason: String },
+    NotYet {
+        candidate_id: String,
+        reason: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -135,7 +141,10 @@ pub struct RouteDecider {
 
 impl RouteDecider {
     pub fn new(cfg: HysteresisConfig) -> Self {
-        Self { cfg, state: HysteresisState::default() }
+        Self {
+            cfg,
+            state: HysteresisState::default(),
+        }
     }
 
     pub fn from_state(cfg: HysteresisConfig, state: HysteresisState) -> Self {
@@ -221,7 +230,10 @@ impl RouteDecider {
         self.state.current_route_id = candidate.id.clone();
         self.state.current_metrics = candidate.metrics();
         self.state.degradation_since = None;
-        RouteVerdict::Switch { candidate_id: candidate.id.clone(), reason }
+        RouteVerdict::Switch {
+            candidate_id: candidate.id.clone(),
+            reason,
+        }
     }
 
     /// Record an evaluation where the current route was improved (used after
@@ -236,7 +248,12 @@ impl RouteDecider {
         self.state
             .cooldowns
             .retain(|(_, u)| *u > now.saturating_sub(self.cfg.route_cooldown_ms * 2));
-        if let Some(entry) = self.state.cooldowns.iter_mut().find(|(id, _)| id == route_id) {
+        if let Some(entry) = self
+            .state
+            .cooldowns
+            .iter_mut()
+            .find(|(id, _)| id == route_id)
+        {
             entry.1 = until;
         } else {
             self.state.cooldowns.push((route_id.to_string(), until));
@@ -245,9 +262,7 @@ impl RouteDecider {
 
     /// Drop cooldowns that have expired relative to `now`.
     pub fn prune_cooldowns(&mut self, now: TimestampMs) {
-        self.state
-            .cooldowns
-            .retain(|(_, until)| *until > now);
+        self.state.cooldowns.retain(|(_, until)| *until > now);
     }
 }
 
@@ -286,7 +301,11 @@ mod tests {
 
         let candidate = route("cand", 77.0, 2.0, 0.0);
         let verdict = d.evaluate(&candidate, 100_000);
-        assert_eq!(verdict, RouteVerdict::Keep, "3 ms on 80 ms is < 10% AND < 5 ms");
+        assert_eq!(
+            verdict,
+            RouteVerdict::Keep,
+            "3 ms on 80 ms is < 10% AND < 5 ms"
+        );
         assert_eq!(d.state.current_route_id, "current");
     }
 
@@ -321,7 +340,11 @@ mod tests {
         // Candidate is NOT meaningfully better on any axis (so only the
         // sustained-degradation path can justify a switch).
         let candidate = route("similar", 245.0, 39.0, 0.075);
-        assert_eq!(d.evaluate(&candidate, 100_000), RouteVerdict::Keep, "no immediate switch");
+        assert_eq!(
+            d.evaluate(&candidate, 100_000),
+            RouteVerdict::Keep,
+            "no immediate switch"
+        );
         // After the degradation persists past the minimum duration → switch.
         let verdict = d.evaluate(&candidate, 102_000);
         assert_eq!(

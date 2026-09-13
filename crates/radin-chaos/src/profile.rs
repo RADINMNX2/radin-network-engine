@@ -51,34 +51,60 @@ impl Default for ChaosProfile {
 impl ChaosProfile {
     /// Perfect network: no impairments at 30 ms base latency.
     pub fn pristine() -> Self {
-        Self { latency_ms: 30.0, ..Self::default() }
+        Self {
+            latency_ms: 30.0,
+            ..Self::default()
+        }
     }
 
     /// The 38-matrix latency axis presets.
     pub fn with_latency(ms: f64) -> Self {
-        Self { latency_ms: ms, ..Self::default() }
+        Self {
+            latency_ms: ms,
+            ..Self::default()
+        }
     }
 
     /// The 38-matrix jitter axis presets.
     pub fn with_jitter(ms: f64) -> Self {
-        Self { jitter_ms: ms, latency_ms: 30.0, ..Self::default() }
+        Self {
+            jitter_ms: ms,
+            latency_ms: 30.0,
+            ..Self::default()
+        }
     }
 
     /// The 38-matrix loss axis presets (ratio 0.0-0.10).
     pub fn with_loss(ratio: f64) -> Self {
-        Self { loss_ratio: ratio, latency_ms: 30.0, ..Self::default() }
+        Self {
+            loss_ratio: ratio,
+            latency_ms: 30.0,
+            ..Self::default()
+        }
     }
 
     pub fn with_reordering(ratio: f64) -> Self {
-        Self { reorder_ratio: ratio, latency_ms: 30.0, ..Self::default() }
+        Self {
+            reorder_ratio: ratio,
+            latency_ms: 30.0,
+            ..Self::default()
+        }
     }
 
     pub fn with_bandwidth(bps: u64) -> Self {
-        Self { bandwidth_bps: bps, latency_ms: 30.0, ..Self::default() }
+        Self {
+            bandwidth_bps: bps,
+            latency_ms: 30.0,
+            ..Self::default()
+        }
     }
 
     pub fn with_failure(mode: FailureMode) -> Self {
-        Self { failure: mode, latency_ms: 30.0, ..Self::default() }
+        Self {
+            failure: mode,
+            latency_ms: 30.0,
+            ..Self::default()
+        }
     }
 }
 
@@ -91,7 +117,10 @@ mod tests {
         assert_eq!(ChaosProfile::with_latency(300.0).latency_ms, 300.0);
         assert_eq!(ChaosProfile::with_jitter(50.0).jitter_ms, 50.0);
         assert_eq!(ChaosProfile::with_loss(0.10).loss_ratio, 0.10);
-        assert_eq!(ChaosProfile::with_bandwidth(1_000_000).bandwidth_bps, 1_000_000);
+        assert_eq!(
+            ChaosProfile::with_bandwidth(1_000_000).bandwidth_bps,
+            1_000_000
+        );
     }
 
     #[test]

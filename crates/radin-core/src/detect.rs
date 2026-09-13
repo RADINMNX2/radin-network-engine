@@ -29,7 +29,9 @@ impl Symptom {
             Symptom::DnsFailure => "DNS resolution is failing or slow.",
             Symptom::TlsHandshakeFailure => "TLS handshakes are failing.",
             Symptom::ConnectionReset => "Connections are being reset between retransmits.",
-            Symptom::EndpointSpecificBlocking => "A specific endpoint is unreachable across transports.",
+            Symptom::EndpointSpecificBlocking => {
+                "A specific endpoint is unreachable across transports."
+            }
         }
     }
 
@@ -38,13 +40,13 @@ impl Symptom {
         if symptoms.is_empty() {
             return "No restrictive-network symptoms detected.".to_string();
         }
-        let udp_degraded = symptoms
-            .iter()
-            .any(|s| matches!(s, Symptom::RepeatedUdpTimeout | Symptom::QuicHandshakeFailure));
-        let mut labels = symptoms
-            .iter()
-            .map(|s| s.description())
-            .collect::<Vec<_>>();
+        let udp_degraded = symptoms.iter().any(|s| {
+            matches!(
+                s,
+                Symptom::RepeatedUdpTimeout | Symptom::QuicHandshakeFailure
+            )
+        });
+        let mut labels = symptoms.iter().map(|s| s.description()).collect::<Vec<_>>();
         labels.sort();
         let mut out = String::from("UDP connectivity appears degraded. ");
         out.push_str(&labels.join(" "));
@@ -115,7 +117,10 @@ mod tests {
         model.observe(Symptom::DnsFailure);
         let msg = model.describe(3);
         assert!(msg.contains("appears degraded"), "msg: {msg}");
-        assert!(!msg.to_lowercase().contains("blocking your isp"), "msg: {msg}");
+        assert!(
+            !msg.to_lowercase().contains("blocking your isp"),
+            "msg: {msg}"
+        );
         assert!(!msg.to_uppercase().contains("CENSOR"), "msg: {msg}");
     }
 
@@ -129,6 +134,9 @@ mod tests {
     #[test]
     fn empty_model_is_benign() {
         let model = RestrictionModel::default();
-        assert_eq!(model.describe(1), "No restrictive-network symptoms detected.");
+        assert_eq!(
+            model.describe(1),
+            "No restrictive-network symptoms detected."
+        );
     }
 }

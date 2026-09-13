@@ -25,16 +25,9 @@ pub struct TrustedIdentity {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ValidationVerdict {
     Ok,
-    ProtocolMismatch {
-        expected: u32,
-        got: u32,
-    },
-    UntrustedIdentity {
-        detail: String,
-    },
-    SignatureInvalid {
-        detail: String,
-    },
+    ProtocolMismatch { expected: u32, got: u32 },
+    UntrustedIdentity { detail: String },
+    SignatureInvalid { detail: String },
     Expired,
 }
 
@@ -90,7 +83,12 @@ impl EdgeVerifier {
         signer: std::sync::Arc<dyn ConfigSigner>,
         require_signature: bool,
     ) -> Self {
-        Self { trusted, signer, require_signature, allow_unsigned_locally: false }
+        Self {
+            trusted,
+            signer,
+            require_signature,
+            allow_unsigned_locally: false,
+        }
     }
 
     /// Verify an edge entry: identity, expiration, signature, and protocol
@@ -161,7 +159,9 @@ impl EdgeVerifier {
 /// Trust-on-first-use style trust for local bootstrap: an explicit dev
 /// setting, never the default.
 pub fn dev_bootstrap_signer() -> NoopConfigSigner {
-    NoopConfigSigner { allow_unsigned: true }
+    NoopConfigSigner {
+        allow_unsigned: true,
+    }
 }
 
 #[cfg(test)]
@@ -191,7 +191,10 @@ mod tests {
     #[test]
     fn rejects_untrusted_host() {
         let v = EdgeVerifier::new(
-            vec![TrustedIdentity { hostname: "edge.corp.example.".into(), spki_pin_b64: None }],
+            vec![TrustedIdentity {
+                hostname: "edge.corp.example.".into(),
+                spki_pin_b64: None,
+            }],
             std::sync::Arc::new(DevSigner),
             true,
         );
@@ -210,51 +213,71 @@ mod tests {
         let v = EdgeVerifier::new(vec![], std::sync::Arc::new(DevSigner), true);
         let e = edge("edge.example.", 1_000_000, None);
         let verdict = v.validate_edge(&e, &[TransportKind::Quic], 99, b"{}", 0);
-        assert!(matches!(verdict, ValidationVerdict::ProtocolMismatch { .. }));
+        assert!(matches!(
+            verdict,
+            ValidationVerdict::ProtocolMismatch { .. }
+        ));
     }
 
     #[test]
     fn rejects_expired_edge() {
         let v = EdgeVerifier::new(vec![], std::sync::Arc::new(DevSigner), true);
         let e = edge("edge.example.", 500, None);
-        assert_eq!(v.validate_edge(&e, &[TransportKind::Quic], 1, b"{}", 1_000), ValidationVerdict::Expired);
+        assert_eq!(
+            v.validate_edge(&e, &[TransportKind::Quic], 1, b"{}", 1_000),
+            ValidationVerdict::Expired
+        );
     }
 
     #[test]
     fn rejects_unsigned_remote_config_by_default() {
         let v = EdgeVerifier::new(
-            vec![TrustedIdentity { hostname: "edge.example.".into(), spki_pin_b64: None }],
-            std::sync::Arc::new(NoopConfigSigner { allow_unsigned: false }),
+            vec![TrustedIdentity {
+                hostname: "edge.example.".into(),
+                spki_pin_b64: None,
+            }],
+            std::sync::Arc::new(NoopConfigSigner {
+                allow_unsigned: false,
+            }),
             true,
         );
         let e = edge("edge.example.", 1_000_000, None);
         let verdict = v.validate_edge(&e, &[TransportKind::Quic, TransportKind::Udp], 1, b"{}", 0);
-        assert!(matches!(verdict, ValidationVerdict::SignatureInvalid { .. }));
+        assert!(matches!(
+            verdict,
+            ValidationVerdict::SignatureInvalid { .. }
+        ));
     }
 
     #[test]
     fn accepts_signed_trusted_edge() {
         let v = EdgeVerifier::new(
-            vec![TrustedIdentity { hostname: "edge.example.".into(), spki_pin_b64: None }],
+            vec![TrustedIdentity {
+                hostname: "edge.example.".into(),
+                spki_pin_b64: None,
+            }],
             std::sync::Arc::new(DevSigner),
             true,
         );
         let e = edge("edge.example.", 1_000_000, Some("abc".into()));
-        assert!(
-            v.validate_edge(&e, &[TransportKind::Quic, TransportKind::Udp], 1, b"{}", 0).is_ok()
-        );
+        assert!(v
+            .validate_edge(&e, &[TransportKind::Quic, TransportKind::Udp], 1, b"{}", 0)
+            .is_ok());
     }
 
     #[test]
     fn dev_bootstrap_signer_is_explicitly_local_only() {
         let v = EdgeVerifier::new(
-            vec![TrustedIdentity { hostname: "edge.example.".into(), spki_pin_b64: None }],
+            vec![TrustedIdentity {
+                hostname: "edge.example.".into(),
+                spki_pin_b64: None,
+            }],
             std::sync::Arc::new(dev_bootstrap_signer()),
             false,
         );
         let e = edge("edge.example.", 1_000_000, None);
-        assert!(
-            v.validate_edge(&e, &[TransportKind::Quic, TransportKind::Udp], 1, b"{}", 0).is_ok()
-        );
+        assert!(v
+            .validate_edge(&e, &[TransportKind::Quic, TransportKind::Udp], 1, b"{}", 0)
+            .is_ok());
     }
 }

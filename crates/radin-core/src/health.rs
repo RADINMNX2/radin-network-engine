@@ -105,7 +105,12 @@ impl Default for HealthWeights {
 
 impl HealthWeights {
     fn normalize(&self) -> Self {
-        let sum = self.latency + self.jitter + self.loss + self.stability + self.reconnect + self.availability;
+        let sum = self.latency
+            + self.jitter
+            + self.loss
+            + self.stability
+            + self.reconnect
+            + self.availability;
         if sum <= f64::EPSILON {
             return Self::default();
         }
@@ -214,7 +219,11 @@ pub struct HealthTracker {
 
 impl Default for HealthTracker {
     fn default() -> Self {
-        Self { model: GradeModel::default(), grade: NetworkHealthGrade::Good, since: None }
+        Self {
+            model: GradeModel::default(),
+            grade: NetworkHealthGrade::Good,
+            since: None,
+        }
     }
 }
 
@@ -281,14 +290,21 @@ pub struct NetworkTypePolicies {
 
 impl Default for NetworkTypePolicies {
     fn default() -> Self {
-        Self { probe_factor: 1.0, keepalive_factor: 1.0, allow_quic: true, allow_udp: true }
+        Self {
+            probe_factor: 1.0,
+            keepalive_factor: 1.0,
+            allow_quic: true,
+            allow_udp: true,
+        }
     }
 }
 
 /// Initial policy guess per network type (benchmarked later).
 pub fn initial_policy(network: crate::model::NetworkType) -> NetworkTypePolicies {
     match network {
-        crate::model::NetworkType::Ethernet | crate::model::NetworkType::Wifi => NetworkTypePolicies::default(),
+        crate::model::NetworkType::Ethernet | crate::model::NetworkType::Wifi => {
+            NetworkTypePolicies::default()
+        }
         crate::model::NetworkType::FourG => NetworkTypePolicies {
             probe_factor: 0.8,
             keepalive_factor: 0.8,
@@ -301,7 +317,9 @@ pub fn initial_policy(network: crate::model::NetworkType) -> NetworkTypePolicies
             allow_quic: false,
             allow_udp: true,
         },
-        crate::model::NetworkType::Other | crate::model::NetworkType::Unknown => NetworkTypePolicies::default(),
+        crate::model::NetworkType::Other | crate::model::NetworkType::Unknown => {
+            NetworkTypePolicies::default()
+        }
     }
 }
 
@@ -346,10 +364,22 @@ mod tests {
 
     #[test]
     fn monitor_levels_follow_health() {
-        assert_eq!(monitor_level(NetworkHealthGrade::Excellent), MonitorLevel::Low);
-        assert_eq!(monitor_level(NetworkHealthGrade::Good), MonitorLevel::Normal);
-        assert_eq!(monitor_level(NetworkHealthGrade::Degraded), MonitorLevel::High);
-        assert_eq!(monitor_level(NetworkHealthGrade::Critical), MonitorLevel::Aggressive);
+        assert_eq!(
+            monitor_level(NetworkHealthGrade::Excellent),
+            MonitorLevel::Low
+        );
+        assert_eq!(
+            monitor_level(NetworkHealthGrade::Good),
+            MonitorLevel::Normal
+        );
+        assert_eq!(
+            monitor_level(NetworkHealthGrade::Degraded),
+            MonitorLevel::High
+        );
+        assert_eq!(
+            monitor_level(NetworkHealthGrade::Critical),
+            MonitorLevel::Aggressive
+        );
     }
 
     #[test]
@@ -357,7 +387,11 @@ mod tests {
         let mut t = HealthTracker::default();
         // Start Excellent.
         let g1 = t.observe(95.0, 0, 3_000);
-        assert_eq!(g1.grade, NetworkHealthGrade::Good, "no sustain yet, starts at Good");
+        assert_eq!(
+            g1.grade,
+            NetworkHealthGrade::Good,
+            "no sustain yet, starts at Good"
+        );
         // Sustain to Excellent.
         let g2 = t.observe(95.0, 4_000, 3_000);
         assert_eq!(g2.grade, NetworkHealthGrade::Excellent);
@@ -366,7 +400,11 @@ mod tests {
         assert_eq!(g3.grade, NetworkHealthGrade::Critical);
         // And it cannot fast-track back up.
         let g4 = t.observe(95.0, 5_100, 3_000);
-        assert_eq!(g4.grade, NetworkHealthGrade::Critical, "must sustain before climbing again");
+        assert_eq!(
+            g4.grade,
+            NetworkHealthGrade::Critical,
+            "must sustain before climbing again"
+        );
     }
 
     #[test]

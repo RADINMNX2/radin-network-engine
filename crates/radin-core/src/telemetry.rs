@@ -40,7 +40,11 @@ impl Default for TelemetryBuffer {
 
 impl TelemetryBuffer {
     pub fn new(capacity: usize) -> Self {
-        Self { capacity: capacity.max(1), samples: VecDeque::with_capacity(capacity.max(1)), events: VecDeque::new() }
+        Self {
+            capacity: capacity.max(1),
+            samples: VecDeque::with_capacity(capacity.max(1)),
+            events: VecDeque::new(),
+        }
     }
 
     /// Push a sample. Enforces the honesty boundary: synthetic data is
@@ -81,7 +85,9 @@ impl TelemetryBuffer {
 
     /// Reject a buffer that somehow contains synthetic data.
     pub fn is_pristine(&self) -> bool {
-        self.samples.iter().all(|s| s.source == MeasuredSource::Real)
+        self.samples
+            .iter()
+            .all(|s| s.source == MeasuredSource::Real)
     }
 }
 
@@ -137,14 +143,23 @@ impl DiagnosticBuilder {
             .iter()
             .filter(|e| e.kind == EventKind::HandshakeFailure)
             .count() as u64;
-        let dns_failures = event_log.iter().filter(|e| e.kind == EventKind::DnsFailure).count() as u64;
+        let dns_failures = event_log
+            .iter()
+            .filter(|e| e.kind == EventKind::DnsFailure)
+            .count() as u64;
 
         Ok(DiagnosticReport {
             generated_at,
             network: latest.map(|l| l.network),
-            transport: latest.and_then(|l| l.transport).or(candidate.map(|c| c.transport)),
-            selected_edge: candidate.map(|c| c.id.clone()).or(latest.and_then(|l| l.route.clone())),
-            rtt_ms: latest.map(|l| l.latency_ms).or(candidate.map(|c| c.latency_ms)),
+            transport: latest
+                .and_then(|l| l.transport)
+                .or(candidate.map(|c| c.transport)),
+            selected_edge: candidate
+                .map(|c| c.id.clone())
+                .or(latest.and_then(|l| l.route.clone())),
+            rtt_ms: latest
+                .map(|l| l.latency_ms)
+                .or(candidate.map(|c| c.latency_ms)),
             jitter_ms: latest.map(|l| l.jitter_ms),
             packet_loss_pct: latest.map(|l| l.packet_loss_ratio * 100.0),
             reconnects,
@@ -184,9 +199,15 @@ impl DiagnosticReport {
         }
         o.push_str(&format!("Reconnects:             {}\n", self.reconnects));
         o.push_str(&format!("Route Changes:          {}\n", self.route_changes));
-        o.push_str(&format!("Transport Fallbacks:    {}\n", self.transport_fallbacks));
+        o.push_str(&format!(
+            "Transport Fallbacks:    {}\n",
+            self.transport_fallbacks
+        ));
         o.push_str(&format!("Circuit Trips:          {}\n", self.circuit_trips));
-        o.push_str(&format!("Handshake Failures:     {}\n", self.handshake_failures));
+        o.push_str(&format!(
+            "Handshake Failures:     {}\n",
+            self.handshake_failures
+        ));
         o.push_str(&format!("DNS Failures:           {}\n", self.dns_failures));
         o.push_str("(No packet payloads, credentials, or user data included.)\n");
         o
@@ -241,11 +262,23 @@ mod tests {
             crate::events::Event::new(EventKind::DnsFailure, 2),
         ];
         let rep = b
-            .build(100, Some(&sample(99, MeasuredSource::Real)), None, &events, 1, 2, 0, 1)
+            .build(
+                100,
+                Some(&sample(99, MeasuredSource::Real)),
+                None,
+                &events,
+                1,
+                2,
+                0,
+                1,
+            )
             .unwrap();
         assert_eq!(rep.rtt_ms, Some(72.0));
         let loss_pct = rep.packet_loss_pct.unwrap();
-        assert!((loss_pct - 0.3).abs() < 1e-9, "packet loss % honest: {loss_pct}");
+        assert!(
+            (loss_pct - 0.3).abs() < 1e-9,
+            "packet loss % honest: {loss_pct}"
+        );
         assert_eq!(rep.handshake_failures, 1);
         assert_eq!(rep.dns_failures, 1);
         let text = rep.render_plaintext();

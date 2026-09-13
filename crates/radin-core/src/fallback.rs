@@ -62,12 +62,22 @@ impl FallbackEngine {
     /// Feed the engine the current failure signals for every transport.
     /// It advances only when the *current* transport is demonstrably failed
     /// (per `FailureSignal`) AND the block window has passed.
-    pub fn observe(&mut self, signals: Vec<(TransportKind, FailureSignal)>, now: u64) -> Option<TransportKind> {
+    pub fn observe(
+        &mut self,
+        signals: Vec<(TransportKind, FailureSignal)>,
+        now: u64,
+    ) -> Option<TransportKind> {
         self.last_signals = signals.clone();
         let current = self.current();
 
         let is_failed = signals.iter().any(|(k, s)| {
-            *k == current && matches!(s, FailureSignal::StateFailed | FailureSignal::CircuitOpen | FailureSignal::HandshakeFailure)
+            *k == current
+                && matches!(
+                    s,
+                    FailureSignal::StateFailed
+                        | FailureSignal::CircuitOpen
+                        | FailureSignal::HandshakeFailure
+                )
         });
 
         if is_failed {
@@ -82,7 +92,11 @@ impl FallbackEngine {
                     self.current_index += 1;
                     self.blocked.push((
                         current,
-                        signals.iter().find(|(k, _)| *k == current).map(|(_, s)| *s).unwrap_or(FailureSignal::StateFailed),
+                        signals
+                            .iter()
+                            .find(|(k, _)| *k == current)
+                            .map(|(_, s)| *s)
+                            .unwrap_or(FailureSignal::StateFailed),
                         now,
                         now + 5_000,
                     ));
@@ -116,7 +130,7 @@ impl FallbackEngine {
         }
     }
 
-/// Time spent (ms) since the engine last moved down the chain.
+    /// Time spent (ms) since the engine last moved down the chain.
     pub fn last_fallback_at(&self) -> Option<u64> {
         self.blocked.last().map(|(_, _, at, _)| *at)
     }
@@ -165,11 +179,11 @@ mod tests {
     fn ends_at_direct_and_stays() {
         let mut fb = FallbackEngine::default();
         fb.current_index = fb.chain.len() - 1; // on Direct
-        let moved = fb.observe(
-            vec![(TransportKind::Direct, FailureSignal::StateFailed)],
-            0,
+        let moved = fb.observe(vec![(TransportKind::Direct, FailureSignal::StateFailed)], 0);
+        assert!(
+            moved.is_none(),
+            "Direct cannot fall back further (fail-safe terminal)"
         );
-        assert!(moved.is_none(), "Direct cannot fall back further (fail-safe terminal)");
     }
 
     #[test]
@@ -201,7 +215,10 @@ mod tests {
         assert_eq!(fb.observe(signals.clone(), 0), Some(TransportKind::TcpTls));
         // Suddenly UDP is fine again, but TCP is failing: we do NOT hop back.
         // Cooldown is now in effect for UDP → engine stays on TCP.
-        let moved = fb.observe(vec![(TransportKind::TcpTls, FailureSignal::HandshakeFailure)], 100);
+        let moved = fb.observe(
+            vec![(TransportKind::TcpTls, FailureSignal::HandshakeFailure)],
+            100,
+        );
         // TCP block window is fresh (no earlier block), so advance is allowed.
         assert_eq!(moved, Some(TransportKind::Direct));
     }

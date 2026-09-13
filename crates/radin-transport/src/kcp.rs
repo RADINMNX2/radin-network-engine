@@ -31,7 +31,13 @@ pub struct KcpConfig {
 
 impl Default for KcpConfig {
     fn default() -> Self {
-        Self { mtu: 1400, interval_ms: 30, nodelay: false, resend: 2, congestion_control: true }
+        Self {
+            mtu: 1400,
+            interval_ms: 30,
+            nodelay: false,
+            resend: 2,
+            congestion_control: true,
+        }
     }
 }
 
@@ -47,7 +53,10 @@ impl KcpSession {
     /// Open a session locally (2-tuple bind). Synchronous by design; the
     /// platform layer drives the socket.
     pub fn open(config: KcpConfig) -> Self {
-        Self { config, negotiated_version: 1 }
+        Self {
+            config,
+            negotiated_version: 1,
+        }
     }
 
     pub fn config(&self) -> &KcpConfig {

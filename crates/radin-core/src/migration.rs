@@ -57,7 +57,10 @@ impl Default for MigrationPolicy {
 }
 
 /// Classify the change between two network states.
-pub fn classify_change(before: Option<NetworkType>, after: Option<NetworkType>) -> NetworkChangeKind {
+pub fn classify_change(
+    before: Option<NetworkType>,
+    after: Option<NetworkType>,
+) -> NetworkChangeKind {
     match (before, after) {
         (Some(a), Some(b)) if a == b => NetworkChangeKind::None,
         (Some(_), Some(_)) => NetworkChangeKind::TypeChange,
@@ -96,19 +99,31 @@ mod tests {
             classify_change(Some(NetworkType::Wifi), Some(NetworkType::FiveG)),
             NetworkChangeKind::TypeChange
         );
-        let out = decide_migration(NetworkChangeKind::TypeChange, true, &MigrationPolicy::default());
+        let out = decide_migration(
+            NetworkChangeKind::TypeChange,
+            true,
+            &MigrationPolicy::default(),
+        );
         assert_eq!(out, MigrationOutcome::MigrationStarted);
     }
 
     #[test]
     fn non_migration_capable_transport_does_controlled_reconnect() {
-        let out = decide_migration(NetworkChangeKind::TypeChange, false, &MigrationPolicy::default());
+        let out = decide_migration(
+            NetworkChangeKind::TypeChange,
+            false,
+            &MigrationPolicy::default(),
+        );
         assert_eq!(out, MigrationOutcome::ControlledReconnect);
     }
 
     #[test]
     fn loss_of_connectivity_always_drops_to_reconnect() {
-        let out = decide_migration(NetworkChangeKind::LossOfConnectivity, true, &MigrationPolicy::default());
+        let out = decide_migration(
+            NetworkChangeKind::LossOfConnectivity,
+            true,
+            &MigrationPolicy::default(),
+        );
         assert_eq!(out, MigrationOutcome::ControlledReconnect);
     }
 

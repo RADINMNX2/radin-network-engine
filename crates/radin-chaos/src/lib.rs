@@ -5,10 +5,10 @@
 //! latency, jitter, packet loss, reordering, bandwidth limits, connection
 //! resets and intermittent connectivity.
 
-/// Model of network pathologies applied to packet flows.
-pub mod profile;
 /// Packet-level pipeline that applies a `ChaosProfile` to a stream.
 pub mod pipeline;
+/// Model of network pathologies applied to packet flows.
+pub mod profile;
 
-pub use profile::{ChaosProfile, FailureMode};
 pub use pipeline::{PacketRecord, PacketResult, PipelineState};
+pub use profile::{ChaosProfile, FailureMode};

@@ -87,21 +87,32 @@ struct IngestAck {
 
 /// POST /v1/benchmark — store benchmark metadata (server keeps histories as
 /// a read model; client already keeps its local-first copy per spec 15).
-async fn benchmark(State(state): State<Arc<ServerState>>, headers: HeaderMap, body: String) -> impl IntoResponse {
-    let key = idempotency_key(&headers)
-        .unwrap_or_else(|| "benchmark-no-key".to_string());
+async fn benchmark(
+    State(state): State<Arc<ServerState>>,
+    headers: HeaderMap,
+    body: String,
+) -> impl IntoResponse {
+    let key = idempotency_key(&headers).unwrap_or_else(|| "benchmark-no-key".to_string());
     if let Some(_outcome) = state.idempotency.read().unwrap().get(&key) {
         return (StatusCode::OK, Json(IngestAck { accepted: 0 })).into_response();
     }
     let parsed: Result<BenchmarkIngest, _> = serde_json::from_str(&body);
     match parsed {
         Ok(ingest) => {
-            state.idempotency.write().unwrap().insert(key, format!("accepted:{}", ingest.samples.len()));
+            state
+                .idempotency
+                .write()
+                .unwrap()
+                .insert(key, format!("accepted:{}", ingest.samples.len()));
             let n = ingest.samples.len();
             (StatusCode::OK, Json(IngestAck { accepted: n })).into_response()
         }
         Err(e) => {
-            state.idempotency.write().unwrap().insert(key, "invalid".into());
+            state
+                .idempotency
+                .write()
+                .unwrap()
+                .insert(key, "invalid".into());
             (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({"error": format!("invalid benchmark payload: {e}")})),

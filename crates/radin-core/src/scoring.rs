@@ -189,8 +189,14 @@ mod tests {
         let slow_stable = cand(80.0, 2.0, 0.0, 0.9);
         let (s_fast, b_fast) = score_snapshot(&ScoreWeights::default(), &fast_jittery.metrics());
         let (s_slow, b_slow) = score_snapshot(&ScoreWeights::default(), &slow_stable.metrics());
-        assert!(b_slow.loss > b_fast.loss, "loss sub-score should rank stable higher");
-        assert!(b_slow.jitter > b_fast.jitter, "jitter sub-score should rank stable higher");
+        assert!(
+            b_slow.loss > b_fast.loss,
+            "loss sub-score should rank stable higher"
+        );
+        assert!(
+            b_slow.jitter > b_fast.jitter,
+            "jitter sub-score should rank stable higher"
+        );
         assert!(
             s_slow > s_fast,
             "stable 80 ms route must outscore jittery 65 ms route for gaming;\
@@ -202,14 +208,20 @@ mod tests {
     fn score_all_populates_and_rejects_synthetic() {
         let mut real = vec![cand(50.0, 5.0, 0.001, 0.9)];
         score_all(&ScoreWeights::default(), &mut real, false).unwrap();
-        assert!(real[0].score.unwrap() > 70.0, "healthy route must score high");
+        assert!(
+            real[0].score.unwrap() > 70.0,
+            "healthy route must score high"
+        );
 
         let mut synthetic = vec![RouteCandidate {
             source: MeasuredSource::Synthetic,
             ..cand(10.0, 1.0, 0.0, 1.0)
         }];
         let err = score_all(&ScoreWeights::default(), &mut synthetic, false);
-        assert!(err.is_err(), "production scoring must reject synthetic data");
+        assert!(
+            err.is_err(),
+            "production scoring must reject synthetic data"
+        );
         score_all(&ScoreWeights::default(), &mut synthetic, true).unwrap();
     }
 
@@ -228,8 +240,14 @@ mod tests {
 
     #[test]
     fn heavy_loss_is_punished() {
-        let (s3, _) = score_snapshot(&ScoreWeights::default(), &cand(70.0, 5.0, 0.03, 0.8).metrics());
-        let (s10, _) = score_snapshot(&ScoreWeights::default(), &cand(70.0, 5.0, 0.10, 0.8).metrics());
+        let (s3, _) = score_snapshot(
+            &ScoreWeights::default(),
+            &cand(70.0, 5.0, 0.03, 0.8).metrics(),
+        );
+        let (s10, _) = score_snapshot(
+            &ScoreWeights::default(),
+            &cand(70.0, 5.0, 0.10, 0.8).metrics(),
+        );
         assert!(s3 > s10);
     }
 }
