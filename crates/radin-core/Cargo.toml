@@ -1,0 +1,33 @@
+[package]
+name = "radin-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "RADIN Network Engine core: routing, resiliency, telemetry logic. Platform-independent."
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+rand = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
+# Optional persistence backends (spec 15). `sqlite` requires a native sqlite build.
+sqlite = ["dep:rusqlite"]
+zstd = ["dep:zstd"]
+benchmark-synthetic = [] # ENABLES synthetic probes for the TEST chaos harness only.
+
+[dependencies.rusqlite]
+version = "0.32"
+features = ["bundled"]
+optional = true
+
+[dependencies.zstd]
+version = "0.13"
+optional = true
+
+[dev-dependencies]
+radin-chaos = { path = "../radin-chaos" }

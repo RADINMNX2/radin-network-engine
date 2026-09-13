@@ -1,0 +1,17 @@
+/target
+**/*.rs.bk
+Cargo.lock.orig
+*.pdb
+.cargo/
+.idea/
+.vscode/
+*.iml
+.env
+.env.*
+build/
+.bin/
+generated/
+**/android/generated/
+local.properties
+.terraform/
+TSconfig.json

@@ -1,0 +1,38 @@
+# cbindgen.toml — generates C headers for the RADIN FFI surface.
+# Run: cbindgen --config cbindgen.toml --crate radin-ffi --output radin.h
+language = "C"
+cpp_compat = true
+
+[parse]
+parse_deps = false
+include = ["radin-ffi"]
+clean = false
+
+[export]
+include = [
+  "RadinEngine",
+  "radin_version",
+  "radin_engine_new",
+  "radin_engine_free",
+  "radin_engine_last_error",
+  "radin_engine_set_edges",
+  "radin_engine_set_network",
+  "radin_engine_set_vpn",
+  "radin_engine_observe",
+  "radin_engine_report_transport_failure",
+  "radin_engine_report_transport_success",
+  "radin_engine_diagnostic_json",
+  "radin_engine_current_route_json",
+  "radin_engine_fail_safe",
+  "radin_engine_may_forward_direct",
+  "radin_free_string"
+]
+
+[fn]
+rename_args = "None"
+
+[struct]
+derive_constructor = false
+
+[enum]
+rename_variants = "ScreamingSnakeCase"

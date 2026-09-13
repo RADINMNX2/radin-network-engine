@@ -1,0 +1,13 @@
+[package]
+name = "radin-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "RADIN CLI demo + local bench/diagnostic runner."
+
+[dependencies]
+radin-core = { path = "../radin-core" }
+radin-chaos = { path = "../radin-chaos" }
+serde_json = { workspace = true }
+rand = { workspace = true }

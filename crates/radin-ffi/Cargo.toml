@@ -1,0 +1,11 @@
+[package]
+name = "radin-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "C ABI (cbindgen) surface exposing the RADIN core to Flutter/Dart via dart:ffi."
+
+[dependencies]
+radin-core = { path = "../radin-core" }
+serde_json = { workspace = true }

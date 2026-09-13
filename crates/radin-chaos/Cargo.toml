@@ -1,0 +1,11 @@
+[package]
+name = "radin-chaos"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "RADIN network chaos harness (TEST ONLY). Simulates latency, jitter, loss, reorder, bandwidth, resets, intermittent connectivity for the test matrix."
+
+[dependencies]
+rand = { workspace = true }
+serde = { workspace = true }

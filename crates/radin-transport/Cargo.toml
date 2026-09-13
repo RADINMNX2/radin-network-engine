@@ -1,0 +1,69 @@
+[package]
+name = "radin-transport"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "RADIN transport adapters (QUIC/UDP/TCP/HTTP2/WebSocket) over the core transport abstraction."
+
+[dependencies]
+radin-core = { path = "../radin-core" }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = ["udp", "tcp"]
+# UDP + TCP adapters use only std sockets (no external deps).
+udp = []
+tcp = []
+# KCP-style reliable-UDP shim (spec 5) — opt-in, conservative defaults.
+kcp = []
+# QUIC via quinn (requires TLS certs; see quic.rs for the dev-cert helper).
+quic = ["dep:quinn", "dep:rustls", "dep:rcgen", "dep:rustls-pki-types"]
+# HTTP/2 via h2 & tokio (stream multiplexing example, spec 2).
+http2 = ["dep:h2", "dep:tokio", "dep:bytes", "dep:http"]
+# WebSocket/TLS as the final fallback example.
+ws = ["dep:tokio-tungstenite", "dep:tokio", "dep:futures-util"]
+
+[dependencies.tokio]
+version = "1"
+features = ["net", "rt", "time", "io-util", "sync"]
+optional = true
+
+[dependencies.futures-util]
+version = "0.3"
+optional = true
+
+[dependencies.bytes]
+version = "1"
+optional = true
+
+[dependencies.rustls]
+version = "0.23"
+features = ["ring"]
+optional = true
+
+[dependencies.rustls-pki-types]
+version = "1"
+optional = true
+
+[dependencies.rcgen]
+version = "0.13"
+optional = true
+
+[dependencies.quinn]
+version = "0.11"
+optional = true
+
+[dependencies.h2]
+version = "0.4"
+optional = true
+
+[dependencies.http]
+version = "1"
+optional = true
+
+[dependencies.tokio-tungstenite]
+version = "0.24"
+features = ["rustls-tls-native-roots"]
+optional = true

@@ -1,0 +1,87 @@
+// radin_control.proto — canonical control-plane schema (PROTO_BUILD-REQUIRED).
+//
+// BUILD-REQUIRED SCAFFOLD: this workspace has no protoc, so the .proto is the
+// source of truth in text form only. `protoc --dart_out` / the Rust `prost`
+// build must run on a protoc-equipped machine. Message names and the opcode
+// numbers below MUST stay aligned with radin-core `ControlOpKind` (the core's
+// `proto_tag_matches_schema_names` test guards exactly this mapping).
+
+syntax = "proto3";
+package mnk.radin.control.v1;
+
+// Replaces/generalizes the wire format that the server currently encodes as
+// `ControlEnvelope` (operation_id / idempotency_key / payload_format /
+// payload_b64). Edge list, telemetry ACK, and route-pin payloads are carried
+// inside `payload_b64` (JSON) for schema tolerance across versions.
+
+message ControlEnvelope {
+  string operation_id = 1;
+  string idempotency_key = 2;
+  ControlOpKind kind = 3;
+  uint64 created_at_ms = 4;
+  bytes payload = 5;
+}
+
+enum ControlOpKind {
+  // Must match ControlOpKind opcodes in radin-core/src/control.rs.
+  KIND_UNSPECIFIED = 0;
+  EDGE_LIST_REFRESH = 1;
+  CONFIG_UPDATE = 2;
+  OPTIMIZATION_POLICY = 3;
+  TELEMETRY_ACK = 4;
+  ROUTE_PIN = 5;
+}
+
+enum SubmitOutcome {
+  OUTCOME_UNSPECIFIED = 0;
+  ACCEPTED = 1;
+  DUPLICATE = 2;
+  REJECTED = 3;
+}
+
+message SubmitReply {
+  SubmitOutcome outcome = 1;
+  string operation_id = 2;
+  string reason = 3; // populated when REJECTED
+}
+
+// Mirror of `DiagnosticReport` (radin-core telemetry.rs) so a control-plane
+// peer can render the same truth the CLI/server renders. `source` is the
+// honesty marker: REAL only in production paths; a SYNTHETIC report must never
+// be emitted by a production endpoint.
+message DiagnosticReport {
+  string generated_at_ms = 1;
+  string network = 2;
+  string transport = 3;
+  string selected_edge = 4;
+  double rtt_ms = 5;
+  double jitter_ms = 6;
+  double packet_loss_pct = 7;
+  uint64 reconnects = 8;
+  uint64 route_changes = 9;
+  uint64 transport_fallbacks = 10;
+  uint64 circuit_trips = 11;
+  uint64 handshake_failures = 12;
+  uint64 dns_failures = 13;
+  enum Source {
+    SOURCE_UNSPECIFIED = 0;
+    REAL = 1;
+    SYNTHETIC = 2;
+  }
+  Source source = 14;
+}
+
+// One routed hop the engine selected: the data plane resolves transports on
+// the candidate the engine chose (spec 41: the engine is the only router).
+message SelectedRoute {
+  string route_id = 1; // "<edge>-<transport>" (lowercase transport suffix)
+  string edge_id = 2;
+  string transport = 3;
+  bool direct_fallback_active = 4;
+}
+
+service RadinControl {
+  rpc Submit(ControlEnvelope) returns (SubmitReply);
+  rpc ReportDiagnostic(DiagnosticReport) returns (SubmitReply);
+  rpc SelectRoute(SelectedRoute) returns (SubmitReply);
+}
