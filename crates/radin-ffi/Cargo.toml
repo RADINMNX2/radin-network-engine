@@ -9,3 +9,7 @@ description = "C ABI (cbindgen) surface exposing the RADIN core to Flutter/Dart 
 [dependencies]
 radin-core = { path = "../radin-core" }
 serde_json = { workspace = true }
+
+[lib]
+name = "radin_ffi"
+crate-type = ["cdylib", "rlib"]

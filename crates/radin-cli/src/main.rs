@@ -3,7 +3,10 @@
 //! Drives a real `RouteEngine` through a scripted network timeline using the
 //! TEST-ONLY chaos pipeline (`radin-chaos`). Every number printed is honest:
 //! the source is synthetic (harness-generated) and it is labelled as such.
-//! Nothing here is production telemetry, ever.
+//! Nothing here is production telemetry, ever. Exit codes: 0 ok, 2 usage,
+//! 101 runtime panic (Rust default).
+
+use std::process::ExitCode;
 
 use radin_chaos::pipeline::{PacketResult, PipelineState};
 use radin_chaos::profile::{ChaosProfile, FailureMode};
@@ -11,6 +14,113 @@ use radin_core::engine::{EdgeObservation, EngineConfig, RouteEngine};
 use radin_core::events::EventKind;
 use radin_core::health::NetworkHealthGrade;
 use radin_core::model::{DataPlanePolicy, EdgeInfo, NetworkType, TransportKind, VpnState};
+
+const USAGE: &str = "\
+radin-cli — scripted fail-over demonstration (SYNTHETIC harness measurements)
+
+Usage:
+  radin-cli [--scenario full|smoke] [--report plain|json]
+            [--ms <tick-ms>] [--rounds <n>] [--help] [--version]
+
+Options:
+  --scenario <name>  full  = four-phase A-D timeline (default)
+                     smoke = short CI-friendly pass over the same phases
+  --report <format>  plain = human-readable tables + plaintext report (default)
+                     json  = machine-readable JSON on stdout (markers on stderr)
+  --ms <ms>          tick interval in ms between probe rounds (default 200)
+  --rounds <n>       override probe rounds in every phase
+                     (defaults: full A20/B50/C10/D60, smoke A6/B10/C4/D10)
+  --version          print version and exit
+  --help             print this help and exit
+
+Exit codes: 0 ok, 2 usage error, 101 runtime panic.
+The source of every number is the radin-chaos harness — SYNTHETIC. This is a
+demo of engine behavior, never production telemetry (spec 39/41).
+";
+
+const FULL_ROUNDS: [u64; 4] = [20, 50, 10, 60];
+const SMOKE_ROUNDS: [u64; 4] = [6, 10, 4, 10];
+
+#[derive(Clone, Copy, PartialEq)]
+enum Scenario {
+    Full,
+    Smoke,
+}
+
+impl Scenario {
+    fn parse(s: &str) -> Option<Self> {
+        match s {
+            "full" => Some(Self::Full),
+            "smoke" => Some(Self::Smoke),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum ReportFormat {
+    Plain,
+    Json,
+}
+
+impl ReportFormat {
+    fn parse(s: &str) -> Option<Self> {
+        match s {
+            "plain" => Some(Self::Plain),
+            "json" => Some(Self::Json),
+            _ => None,
+        }
+    }
+}
+
+struct Options {
+    scenario: Scenario,
+    report: ReportFormat,
+    interval_ms: u64,
+    rounds: Option<u64>,
+}
+
+fn parse_args() -> Result<Options, String> {
+    let mut opts = Options {
+        scenario: Scenario::Full,
+        report: ReportFormat::Plain,
+        interval_ms: 200,
+        rounds: None,
+    };
+    let mut it = std::env::args().skip(1);
+    while let Some(arg) = it.next() {
+        match arg.as_str() {
+            "--scenario" => {
+                let v = it.next().ok_or("--scenario requires a value")?;
+                opts.scenario = Scenario::parse(&v)
+                    .ok_or_else(|| format!("unknown scenario '{v}' (full|smoke)"))?;
+            }
+            "--report" => {
+                let v = it.next().ok_or("--report requires a value")?;
+                opts.report = ReportFormat::parse(&v)
+                    .ok_or_else(|| format!("unknown report format '{v}' (plain|json)"))?;
+            }
+            "--ms" => {
+                let v = it.next().ok_or("--ms requires a value")?;
+                opts.interval_ms = v.parse().map_err(|_| format!("bad --ms value '{v}'"))?;
+            }
+            "--rounds" => {
+                let v = it.next().ok_or("--rounds requires a value")?;
+                opts.rounds = Some(v.parse().map_err(|_| format!("bad --rounds value '{v}'"))?);
+            }
+            "--version" => {
+                println!("radin-cli {}", env!("CARGO_PKG_VERSION"));
+                std::process::exit(0);
+            }
+            "--help" | "-h" => {
+                println!("{USAGE}");
+                std::process::exit(0);
+            }
+            other => return Err(format!("unknown argument '{other}'")),
+        }
+    }
+    Ok(opts)
+}
 
 /// Candidate id is "<edge>-<transport>"; strip the transport suffix for the
 /// edge label the way the resolver does.
@@ -37,13 +147,42 @@ fn edge_info(id: &str, region: &str, address: &str) -> EdgeInfo {
     }
 }
 
-fn main() {
-    println!("╭──────────────────────────────────────────────────────────╮");
-    println!("│ RADIN NETWORK ENGINE — scripted fail-over demonstration  │");
-    println!("│  All measurements are SYNTHETIC (radin-chaos harness).    │");
-    println!("│  No production telemetry is involved. (spec 39/41)        │");
-    println!("╰──────────────────────────────────────────────────────────╯");
-    println!();
+fn main() -> ExitCode {
+    let opts = match parse_args() {
+        Ok(o) => o,
+        Err(e) => {
+            eprintln!("error: {e}");
+            eprintln!("{USAGE}");
+            return ExitCode::from(2);
+        }
+    };
+    run(opts);
+    ExitCode::SUCCESS
+}
+
+fn run(opts: Options) {
+    let json = opts.report == ReportFormat::Json;
+    // Phase banners and per-phase route lines go to stderr in JSON mode so
+    // stdout carries ONLY the machine-readable report.
+    let mut out: Box<dyn std::io::Write> = if json {
+        Box::new(std::io::stderr())
+    } else {
+        Box::new(std::io::stdout())
+    };
+
+    if json {
+        let _ = writeln!(
+            out,
+            "radin-cli: SYNTHETIC harness demo (spec 39/41) — JSON report follows on stdout"
+        );
+    } else {
+        println!("╭──────────────────────────────────────────────────────────╮");
+        println!("│ RADIN NETWORK ENGINE — scripted fail-over demonstration  │");
+        println!("│  All measurements are SYNTHETIC (radin-chaos harness).    │");
+        println!("│  No production telemetry is involved. (spec 39/41)        │");
+        println!("╰──────────────────────────────────────────────────────────╯");
+        println!();
+    }
 
     let cfg = EngineConfig {
         supported_transports: vec![
@@ -76,10 +215,24 @@ fn main() {
         SimEdge::new("Edge-FRA-01", ChaosProfile::with_latency(110.0), 503),
     ];
 
-    println!("Phase A — healthy network. Expect the best edge, stable route.\n");
-    drive(&mut engine, &mut edges, 20, 200);
+    let defaults = match opts.scenario {
+        Scenario::Full => FULL_ROUNDS,
+        Scenario::Smoke => SMOKE_ROUNDS,
+    };
+    // Per-phase rounds: explicit --rounds overrides everything.
+    let rounds_of = |phase: usize| opts.rounds.unwrap_or(defaults[phase]);
+    let clock = opts.interval_ms;
 
-    println!("Phase B — Edge-SG-01 sags (8% loss + rising jitter). Expect a switch.\n");
+    let _ = writeln!(
+        out,
+        "Phase A — healthy network. Expect the best edge, stable route."
+    );
+    drive(&mut engine, &mut edges, rounds_of(0), clock, json);
+
+    let _ = writeln!(
+        out,
+        "Phase B — Edge-SG-01 sags (8% loss + rising jitter). Expect a switch."
+    );
     edges[0] = SimEdge::new(
         "Edge-SG-01",
         ChaosProfile {
@@ -90,9 +243,12 @@ fn main() {
         },
         504,
     );
-    drive(&mut engine, &mut edges, 50, 200);
+    drive(&mut engine, &mut edges, rounds_of(1), clock, json);
 
-    println!("Phase C — every edge dies. Expect Direct fail-safe (policy allows it).\n");
+    let _ = writeln!(
+        out,
+        "Phase C — every edge dies. Expect Direct fail-safe (policy allows it)."
+    );
     for _ in 0..edges.len() {
         edges[0] = SimEdge::new("Edge-SG-01", death(), 505);
         edges[1] = SimEdge::new("Edge-TYO-01", death(), 506);
@@ -110,19 +266,23 @@ fn main() {
             engine.report_transport_failure(t, now_ms());
         }
     }
-    drive(&mut engine, &mut edges, 10, 200);
-    println!(
+    drive(&mut engine, &mut edges, rounds_of(2), clock, json);
+    let _ = writeln!(
+        out,
         "  fail_safe_action={:?} may_forward_direct={} fallback_current={:?}",
         engine.fail_safe_action(),
         engine.may_forward_direct(),
         engine.fallback.current()
     );
 
-    println!("Phase D — edges recover. Expect reselection + health recovery.\n");
+    let _ = writeln!(
+        out,
+        "Phase D — edges recover. Expect reselection + health recovery."
+    );
     edges[0] = SimEdge::new("Edge-SG-01", ChaosProfile::with_latency(12.0), 508);
     edges[1] = SimEdge::new("Edge-TYO-01", ChaosProfile::with_latency(60.0), 509);
     edges[2] = SimEdge::new("Edge-FRA-01", ChaosProfile::with_latency(110.0), 510);
-    drive(&mut engine, &mut edges, 60, 200);
+    drive(&mut engine, &mut edges, rounds_of(3), clock, json);
     for t in [
         TransportKind::Quic,
         TransportKind::Udp,
@@ -132,23 +292,40 @@ fn main() {
     }
     // Long sustained-clean window lets health climb (upgrades need sustain,
     // and the edge keeps a conservative loss memory — spec 24).
-    drive(&mut engine, &mut edges, 90, 200);
+    drive(&mut engine, &mut edges, rounds_of(3), clock, json);
 
-    println!("╭────────────────────── DIAGNOSTIC REPORT ───────────────────╮");
-    let report = engine.diagnostic_report(now_ms()).expect("report builds");
-    println!("{}", report.render_plaintext());
-    println!("╰─────────────────────────────────────────────────────────────╯");
-    println!();
-    println!("Event log (tail):");
-    for ev in engine.telemetry.events.iter().rev().take(8).rev() {
+    if json {
+        // HONESTY: the engine stamps report.source Real (it assumes production
+        // feeders); the CLI KNOWS this run is harness-fed, so it overrides the
+        // marker AND wraps the payload. JSON consumers see the truth.
+        let report = engine.diagnostic_report(now_ms()).expect("report builds");
+        let mut value = serde_json::json!({
+            "harness": "radin-chaos",
+            "measurements": "SYNTHETIC",
+            "report": report,
+        });
+        value["report"]["source"] = serde_json::json!("Synthetic");
         println!(
-            "  t={:>6}  {:<20} {:?} severity={:?} — {}",
-            ev.timestamp,
-            ev.kind.as_str(),
-            ev.route.as_deref().map(edge_of),
-            ev.severity,
-            ev.reason
+            "{}",
+            serde_json::to_string_pretty(&value).expect("serialize report")
         );
+    } else {
+        println!("╭────────────────────── DIAGNOSTIC REPORT ───────────────────╮");
+        let report = engine.diagnostic_report(now_ms()).expect("report builds");
+        println!("{}", report.render_plaintext());
+        println!("╰─────────────────────────────────────────────────────────────╯");
+        println!();
+        println!("Event log (tail):");
+        for ev in engine.telemetry.events.iter().rev().take(8).rev() {
+            println!(
+                "  t={:>6}  {:<20} {:?} severity={:?} — {}",
+                ev.timestamp,
+                ev.kind.as_str(),
+                ev.route.as_deref().map(edge_of),
+                ev.severity,
+                ev.reason
+            );
+        }
     }
 }
 
@@ -208,7 +385,13 @@ impl SimEdge {
     }
 }
 
-fn drive(engine: &mut RouteEngine, edges: &mut [SimEdge], rounds: u64, interval_ms: u64) {
+fn drive(
+    engine: &mut RouteEngine,
+    edges: &mut [SimEdge],
+    rounds: u64,
+    interval_ms: u64,
+    json: bool,
+) {
     let mut clock = now_ms();
     for _ in 0..rounds {
         clock += interval_ms;
@@ -224,7 +407,13 @@ fn drive(engine: &mut RouteEngine, edges: &mut [SimEdge], rounds: u64, interval_
         .map(|c| c.id.clone())
         .unwrap_or_else(|| "— none —".into());
     let grade = engine.network_health_grade();
-    println!(
+    let mut out: Box<dyn std::io::Write> = if json {
+        Box::new(std::io::stderr())
+    } else {
+        Box::new(std::io::stdout())
+    };
+    let _ = writeln!(
+        out,
         "  route={:<24} grade={:<10} health_worse-than-excellent={} rtt={:.1}ms loss={:.2}%",
         edge_of(&route),
         grade_name(grade),
