@@ -1,0 +1,9 @@
+# RADIN dev toolchain. The stable gate in .github/workflows/ci.yml and local
+# development share this exact channel and component set; rustup installs
+# clippy + rustfmt automatically on first cargo invocation.
+# The CI MSRV job overrides the channel via an explicit `cargo +1.85.0`
+# toolchain argument, which rustup honors above this file.
+[toolchain]
+channel = "stable"
+components = ["clippy", "rustfmt"]
+profile = "minimal"

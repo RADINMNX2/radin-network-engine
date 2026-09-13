@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: 5
+  RUST_BACKTRACE: 1
+
+# Scaffold exclusion: android/ (Kotlin VpnService), app/ (Flutter UI) and
+# proto/ (protobuf) are BUILD-REQUIRED SCAFFOLDS, not buildable here — see
+# docs/SPEC_TRACEABILITY.md. Runners carry no Android SDK/NDK, Flutter SDK or
+# protoc, and the root Cargo.toml member list deliberately excludes them, so
+# no step in this workflow ever compiles them. CI gates only the six Rust
+# workspace crates: core, transport, chaos, server, cli, ffi.
+jobs:
+  check:
+    name: check (stable) — fmt + clippy -D warnings + all-features tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install stable toolchain (clippy, rustfmt)
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+
+      - name: Cache cargo registry and target dirs
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo fmt --check
+        run: cargo fmt --check
+
+      - name: cargo clippy --workspace --all-features --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-features --all-targets --locked -- -D warnings
+
+      - name: cargo test --workspace --all-features
+        run: cargo test --workspace --all-features --locked
+
+  msrv:
+    name: msrv (1.85) — build radin-core only, default features
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install MSRV toolchain 1.85.0
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.85.0
+
+      # rust-toolchain.toml pins channel = "stable" for local dev and the
+      # stable gate; this job overrides it with an explicit `cargo +1.85.0`
+      # toolchain argument, which rustup always honors above toolchain files.
+      - name: Cache cargo registry and target dirs
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo +1.85.0 build -p radin-core --locked
+        run: cargo +1.85.0 build -p radin-core --locked
