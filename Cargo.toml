@@ -14,7 +14,7 @@ version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 rust-version = "1.85"
-repository = "https://example.invalid/radin" # provider-neutral; replace at publish time
+repository = "https://github.com/RADINMNX2/radin-network-engine"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
